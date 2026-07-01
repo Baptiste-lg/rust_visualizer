@@ -1,10 +1,11 @@
 // src/ui.rs
 
 use crate::audio::{
-    AudioAnalysis, AudioSource, PlaybackInfo, PlaybackStatus, SelectedAudioSource, SelectedMic,
+    AudioAnalysis, AudioSource, PlaybackInfo, PlaybackPosition, PlaybackStatus,
+    SelectedAudioSource, SelectedMic,
 };
 use crate::config::VisualsConfig;
-use crate::{ActiveVisualization, AppState, VisualizationEnabled};
+use crate::{in_any_visualization_state, ActiveVisualization, AppState, VisualizationEnabled};
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 use bevy_egui::egui::color_picker;
@@ -52,18 +53,12 @@ impl Plugin for UiPlugin {
                     main_ui_layout,       // The main system handling panels
                 )
                     .after(EguiSet::InitContexts)
-                    .run_if(
-                        in_state(AppState::Visualization2D)
-                            .or_else(in_state(AppState::Visualization3D))
-                            .or_else(in_state(AppState::VisualizationOrb))
-                            .or_else(in_state(AppState::VisualizationDisc))
-                            .or_else(in_state(AppState::VisualizationIco)),
-                    ),
+                    .run_if(in_any_visualization_state),
             );
     }
 }
 
-// --- Main Menu Components (Unchanged) ---
+// --- Main Menu Components ---
 #[derive(Component)]
 enum MenuButtonAction {
     Start,
@@ -80,7 +75,7 @@ fn toggle_ui_visibility(keyboard: Res<ButtonInput<KeyCode>>, mut ui_viz: ResMut<
     if keyboard.just_pressed(KeyCode::KeyH) {
         ui_viz.visible = !ui_viz.visible;
 
-        // If we just hid the UI, reset the timer to show the hint for 10s
+        // If we just hid the UI, reset the timer to show the hint for 5s
         if !ui_viz.visible {
             ui_viz.hint_timer.reset();
         }
@@ -95,9 +90,8 @@ fn main_ui_layout(
     mut selected_source: ResMut<SelectedAudioSource>,
     mut viz_enabled: ResMut<VisualizationEnabled>,
     mut playback_info: ResMut<PlaybackInfo>,
-    // CHANGED: ResMut to allow timer update
+    mut playback_pos: ResMut<PlaybackPosition>,
     mut ui_visibility: ResMut<UiVisibility>,
-    // CHANGED: Added Time resource
     time: Res<Time>,
     audio_analysis: Res<AudioAnalysis>,
     app_state: Res<State<AppState>>,
@@ -233,7 +227,8 @@ fn main_ui_layout(
                     ui.label("Rotation Speed");
                     ui.add(egui::Slider::new(&mut config.ico_speed, -3.0..=3.0));
                 }
-                _ => {}
+                // MainMenu and MicSelection are filtered out by the run_if guard
+                AppState::MainMenu | AppState::MicSelection => {}
             });
         });
 
@@ -339,7 +334,7 @@ fn main_ui_layout(
                 // Progress Bar
                 if playback_info.duration > Duration::ZERO {
                     let total = playback_info.duration.as_secs_f32();
-                    let mut pos = playback_info.position.as_secs_f32();
+                    let mut pos = playback_pos.position.as_secs_f32();
                     let label = format!("{:.0}s / {:.0}s", pos, total);
                     if ui
                         .add(
@@ -391,9 +386,10 @@ fn render_bloom_ui(ui: &mut egui::Ui, config: &mut VisualsConfig) {
     }
 }
 
-// Adaptation for egui 0.27+ and Bevy Color
+// Adaptation for egui 0.27+ and Bevy Color.
+// Both Bevy's Color::r()/rgba() and egui's Rgba operate in sRGB space here,
+// so the round-trip preserves the intended color values.
 fn color_picker_widget(ui: &mut egui::Ui, color: &mut Color) {
-    // 1. Convert Bevy Color -> [f32; 4]
     let rgba_array = [color.r(), color.g(), color.b(), color.a()];
 
     // 2. Create Egui color (Rgba is premultiplied by default)
@@ -533,7 +529,7 @@ fn setup_mic_selection_menu(mut commands: Commands) {
 }
 
 fn mic_selection_interaction(
-    mut button_query: Query<(&Interaction, &MicDeviceButton)>,
+    mut button_query: Query<(&Interaction, &MicDeviceButton), (Changed<Interaction>, With<Button>)>,
     mut selected_mic: ResMut<SelectedMic>,
     mut next_app_state: ResMut<NextState<AppState>>,
 ) {

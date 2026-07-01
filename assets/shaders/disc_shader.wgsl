@@ -70,7 +70,7 @@ fn fragment(
         let current_radius = reactive_radius - divi;
 
         // Calculation of arc length based on time
-        let sine_wave = (sin(material.time * material.speed - divi * 5.0) * -0.5 + 0.5);
+        let sine_wave = sin(material.time * material.speed - divi * 5.0) * -0.5 + 0.5;
         let full_circle = 2.0 * PI;
         let overcompensation = 0.1;
         let end_angle = sine_wave * (full_circle + overcompensation);
@@ -78,6 +78,8 @@ fn fragment(
         final_frag += ring(p, current_radius, reactive_thickness, end_angle);
     }
 
-    let final_color = material.color.rgb * clamp(final_frag, 0.0, 1.0);
+    let linear_color = material.color.rgb * clamp(final_frag, 0.0, 1.0);
+    // Gamma correction to match ico_shader.wgsl (input is linear space)
+    let final_color = pow(linear_color, vec3<f32>(1.0 / 2.2));
     return vec4<f32>(final_color, 1.0);
 }

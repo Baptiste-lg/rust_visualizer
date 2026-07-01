@@ -140,7 +140,6 @@ fn spawn_visuals(
 
 // Updates the emissive property of each column's material based on audio amplitude.
 // This is a very fast operation as it only modifies a few material assets.
-#[allow(clippy::collapsible_if)]
 fn update_column_materials(
     audio_analysis: Res<AudioAnalysis>,
     config: Res<VisualsConfig>,
@@ -173,6 +172,7 @@ fn update_column_materials(
 
 // Updates the transform (position and scale) of each individual cube.
 fn update_cube_transforms(
+    time: Res<Time>,
     audio_analysis: Res<AudioAnalysis>,
     config: Res<VisualsConfig>,
     mut query: Query<(&mut Transform, &VisualizerCube)>,
@@ -181,15 +181,13 @@ fn update_cube_transforms(
         return;
     }
 
-    let smoothing_factor = 0.2;
+    let smoothing_speed = 8.0;
+    let t = 1.0 - (-smoothing_speed * time.delta_seconds()).exp();
 
     for (mut transform, cube) in &mut query {
         if let Some(band_amplitude) = audio_analysis.frequency_bins.get(cube.frequency_band) {
-            // Scale the cube's height based on the amplitude of its frequency band.
             let target_scale = 1.0 + band_amplitude * config.bass_sensitivity;
-            // Apply smoothing for a more fluid motion.
-            transform.scale.y =
-                transform.scale.y + (target_scale - transform.scale.y) * smoothing_factor;
+            transform.scale.y = transform.scale.y + (target_scale - transform.scale.y) * t;
 
             // If the spread effect is enabled, move the cubes outwards based on treble.
             if config.spread_enabled {
