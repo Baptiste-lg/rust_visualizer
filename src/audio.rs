@@ -1,16 +1,15 @@
 // src/audio.rs
 
-use crate::{config::VisualsConfig, AppState, VisualizationEnabled};
+use crate::{config::VisualsConfig, in_any_visualization_state, VisualizationEnabled};
 use bevy::prelude::*;
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use rodio::{source::Source, Decoder, Sink};
-use spectrum_analyzer::{
-    samples_fft_to_spectrum, scaling::divide_by_N_sqrt, windows::hann_window, FrequencyLimit,
-};
+use spectrum_analyzer::{samples_fft_to_spectrum, scaling::divide_by_N_sqrt, FrequencyLimit};
 use std::collections::VecDeque;
 use std::io::Cursor;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{Receiver, Sender};
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 // --- Symphonia Helper ---
@@ -104,6 +103,9 @@ impl Plugin for AudioPlugin {
         .init_resource::<AudioAnalysis>()
         .init_resource::<SelectedMic>()
         .init_resource::<MicAudioBuffer>()
+        .init_resource::<FftBuffer>()
+        .init_resource::<HannCoefficients>()
+        .init_resource::<CachedBandLimits>()
         .add_systems(
             Update,
             (
@@ -118,13 +120,7 @@ impl Plugin for AudioPlugin {
                     .after(manage_audio_playback)
                     .run_if(|viz_enabled: Res<VisualizationEnabled>| viz_enabled.0),
             )
-                .run_if(
-                    in_state(AppState::Visualization2D)
-                        .or_else(in_state(AppState::Visualization3D))
-                        .or_else(in_state(AppState::VisualizationOrb))
-                        .or_else(in_state(AppState::VisualizationDisc))
-                        .or_else(in_state(AppState::VisualizationIco)),
-                ),
+                .run_if(in_any_visualization_state),
         );
     }
 }
@@ -140,25 +136,36 @@ pub enum PlaybackStatus {
 pub struct PlaybackInfo {
     pub status: PlaybackStatus,
     pub speed: f32,
-    pub position: Duration,
     pub duration: Duration,
     pub seek_to: Option<f32>,
+    /// Cached file bytes to avoid re-reading from disk on seek.
+    pub(crate) cached_file_bytes: Option<Arc<Vec<u8>>>,
+}
+
+/// Separate resource for position tracking so that per-frame position updates
+/// don't trigger change detection on PlaybackInfo.
+#[derive(Resource, Debug, Default)]
+pub struct PlaybackPosition {
+    pub position: Duration,
     pub(crate) last_update: Option<Instant>,
     pub(crate) position_at_last_update: Duration,
-    /// Cached file bytes to avoid re-reading from disk on seek.
-    pub(crate) cached_file_bytes: Option<Vec<u8>>,
 }
 
 impl PlaybackInfo {
     pub fn reset(&mut self) {
         self.status = PlaybackStatus::Paused;
         self.speed = 1.0;
-        self.position = Duration::ZERO;
         self.duration = Duration::ZERO;
         self.seek_to = None;
+        self.cached_file_bytes = None;
+    }
+}
+
+impl PlaybackPosition {
+    pub fn reset(&mut self) {
+        self.position = Duration::ZERO;
         self.last_update = None;
         self.position_at_last_update = Duration::ZERO;
-        self.cached_file_bytes = None;
     }
 }
 
@@ -204,6 +211,32 @@ pub struct AudioAnalysis {
     pub volume: f32,
     pub flux: f32,
     pub previous_spectrum: Vec<(f32, f32)>,
+    spectrum_buffer: Vec<(f32, f32)>,
+}
+
+#[derive(Resource, Default)]
+struct FftBuffer(Vec<f32>);
+
+#[derive(Resource)]
+struct HannCoefficients(Vec<f32>);
+
+impl Default for HannCoefficients {
+    fn default() -> Self {
+        let fft_size = 4096;
+        let coeffs: Vec<f32> = (0..fft_size)
+            .map(|i| {
+                0.5 * (1.0
+                    - (2.0 * std::f32::consts::PI * i as f32 / (fft_size as f32 - 1.0)).cos())
+            })
+            .collect();
+        Self(coeffs)
+    }
+}
+
+#[derive(Resource, Default)]
+struct CachedBandLimits {
+    num_bands: usize,
+    limits: Vec<f32>,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -217,6 +250,7 @@ pub fn manage_audio_playback(
     selected_mic: Res<SelectedMic>,
     mut audio_samples: ResMut<AudioSamples>,
     mut playback_info: ResMut<PlaybackInfo>,
+    mut playback_pos: ResMut<PlaybackPosition>,
 ) {
     if !selected_source.is_changed() {
         return;
@@ -226,6 +260,7 @@ pub fn manage_audio_playback(
     *mic_stream = MicStream(None);
     audio_samples.0.clear();
     playback_info.reset();
+    playback_pos.reset();
 
     match &selected_source.0 {
         AudioSource::File(path) => {
@@ -246,13 +281,13 @@ pub fn manage_audio_playback(
             };
 
             let file_bytes = match std::fs::read(path) {
-                Ok(bytes) => bytes,
+                Ok(bytes) => Arc::new(bytes),
                 Err(e) => {
                     error!("Failed to read music file: {e}");
                     return;
                 }
             };
-            let cursor = Cursor::new(file_bytes.clone());
+            let cursor = Cursor::new((*file_bytes).clone());
             let source = match Decoder::new(cursor) {
                 Ok(s) => s,
                 Err(e) => {
@@ -267,9 +302,9 @@ pub fn manage_audio_playback(
 
             playback_info.duration = duration;
             playback_info.status = PlaybackStatus::Playing;
-            playback_info.last_update = Some(Instant::now());
-            playback_info.position_at_last_update = Duration::ZERO;
             playback_info.cached_file_bytes = Some(file_bytes);
+            playback_pos.last_update = Some(Instant::now());
+            playback_pos.position_at_last_update = Duration::ZERO;
 
             let tee_source = AudioDataTee {
                 source: source.convert_samples(),
@@ -341,6 +376,7 @@ pub fn manage_audio_playback(
 
 fn apply_playback_changes(
     mut playback_info: ResMut<PlaybackInfo>,
+    mut playback_pos: ResMut<PlaybackPosition>,
     sink: NonSend<Sink>,
     selected_source: Res<SelectedAudioSource>,
     analysis_sender: Res<AnalysisAudioSender>,
@@ -353,32 +389,32 @@ fn apply_playback_changes(
         PlaybackStatus::Playing => {
             if sink.is_paused() {
                 sink.play();
-                playback_info.last_update = Some(Instant::now());
-                playback_info.position_at_last_update = playback_info.position;
+                playback_pos.last_update = Some(Instant::now());
+                playback_pos.position_at_last_update = playback_pos.position;
             }
         }
         PlaybackStatus::Paused => {
             if !sink.is_paused() {
                 sink.pause();
-                if let Some(last_update) = playback_info.last_update.take() {
+                if let Some(last_update) = playback_pos.last_update.take() {
                     let elapsed = last_update.elapsed().as_secs_f32() * sink.speed();
-                    playback_info.position =
-                        playback_info.position_at_last_update + Duration::from_secs_f32(elapsed);
+                    playback_pos.position =
+                        playback_pos.position_at_last_update + Duration::from_secs_f32(elapsed);
                 }
-                playback_info.last_update = None;
+                playback_pos.last_update = None;
             }
         }
     }
 
-    if sink.speed() != playback_info.speed {
+    if (sink.speed() - playback_info.speed).abs() > f32::EPSILON {
         if !sink.is_paused() {
-            if let Some(last_update) = playback_info.last_update.take() {
+            if let Some(last_update) = playback_pos.last_update.take() {
                 let elapsed = last_update.elapsed().as_secs_f32() * sink.speed();
-                playback_info.position = playback_info.position_at_last_update
-                    + Duration::from_secs_f32(elapsed);
+                playback_pos.position =
+                    playback_pos.position_at_last_update + Duration::from_secs_f32(elapsed);
             }
-            playback_info.last_update = Some(Instant::now());
-            playback_info.position_at_last_update = playback_info.position;
+            playback_pos.last_update = Some(Instant::now());
+            playback_pos.position_at_last_update = playback_pos.position;
         }
         sink.set_speed(playback_info.speed);
     }
@@ -392,7 +428,7 @@ fn apply_playback_changes(
                 error!("No cached file bytes available for seeking");
                 return;
             };
-            let cursor = Cursor::new(file_bytes.clone());
+            let cursor = Cursor::new((**file_bytes).clone());
             let source = match Decoder::new(cursor) {
                 Ok(s) => s,
                 Err(e) => {
@@ -412,39 +448,43 @@ fn apply_playback_changes(
             sink.clear();
             sink.append(tee_source);
 
-            playback_info.position = seek_duration;
-            playback_info.position_at_last_update = seek_duration;
+            playback_pos.position = seek_duration;
+            playback_pos.position_at_last_update = seek_duration;
 
             if playback_info.status == PlaybackStatus::Playing {
                 sink.play();
-                playback_info.last_update = Some(Instant::now());
+                playback_pos.last_update = Some(Instant::now());
             } else {
                 sink.pause();
-                playback_info.last_update = None;
+                playback_pos.last_update = None;
             }
         }
     }
 }
 
-fn update_playback_position(mut playback_info: ResMut<PlaybackInfo>, sink: NonSend<Sink>) {
+fn update_playback_position(
+    mut playback_info: ResMut<PlaybackInfo>,
+    mut playback_pos: ResMut<PlaybackPosition>,
+    sink: NonSend<Sink>,
+) {
     if playback_info.status == PlaybackStatus::Playing {
-        if let Some(last_update) = playback_info.last_update {
+        if let Some(last_update) = playback_pos.last_update {
             let elapsed_since_update = last_update.elapsed().as_secs_f32() * sink.speed();
-            let new_pos = playback_info.position_at_last_update
+            let new_pos = playback_pos.position_at_last_update
                 + Duration::from_secs_f32(elapsed_since_update);
 
             if new_pos >= playback_info.duration && playback_info.duration != Duration::ZERO {
-                // Playback has finished.
-                playback_info.position = playback_info.duration;
+                playback_pos.position = playback_info.duration;
                 playback_info.status = PlaybackStatus::Paused;
-                playback_info.last_update = None;
+                playback_pos.last_update = None;
             } else {
-                // Update the position for display purposes.
-                playback_info.position = new_pos;
+                playback_pos.position = new_pos;
             }
         }
     }
 }
+
+const MAX_AUDIO_BUFFER: usize = 4096 * 10;
 
 pub fn read_analysis_data_system(
     receiver: Option<NonSend<AnalysisAudioReceiver>>,
@@ -452,6 +492,10 @@ pub fn read_analysis_data_system(
 ) {
     if let Some(receiver) = receiver {
         buffer.0.extend(receiver.0.try_iter());
+        if buffer.0.len() > MAX_AUDIO_BUFFER {
+            let excess = buffer.0.len() - MAX_AUDIO_BUFFER;
+            buffer.0.drain(..excess);
+        }
     }
 }
 
@@ -462,6 +506,10 @@ pub fn read_mic_data_system(
     if let Some(receiver) = receiver {
         for new_data in receiver.0.try_iter() {
             buffer.0.extend(new_data);
+        }
+        if buffer.0.len() > MAX_AUDIO_BUFFER {
+            let excess = buffer.0.len() - MAX_AUDIO_BUFFER;
+            buffer.0.drain(..excess);
         }
     }
 }
@@ -476,6 +524,9 @@ pub fn audio_analysis_system(
     mut audio_samples: ResMut<AudioSamples>,
     mut mic_buffer: ResMut<MicAudioBuffer>,
     config: Res<VisualsConfig>,
+    mut fft_buffer: ResMut<FftBuffer>,
+    hann_coeffs: Res<HannCoefficients>,
+    mut cached_band_limits: ResMut<CachedBandLimits>,
 ) {
     analysis_timer.0.tick(time.delta());
     if !analysis_timer.0.just_finished() {
@@ -485,40 +536,48 @@ pub fn audio_analysis_system(
     let Some(audio_info) = audio_info else { return };
     let fft_size = 4096;
 
-    let analysis_buffer: Option<Vec<f32>> = match &audio_source.0 {
+    // 2.2: Reuse FftBuffer instead of allocating a new Vec each frame
+    let has_data = match &audio_source.0 {
         AudioSource::File(_) => {
             if audio_samples.0.len() < fft_size {
-                None
+                false
             } else {
-                let buffer_len = audio_samples.0.len();
-                let analysis_vec = audio_samples.0.iter().copied().take(fft_size).collect();
-                let drain_amount = buffer_len.saturating_sub(fft_size / 2);
+                fft_buffer.0.clear();
+                fft_buffer
+                    .0
+                    .extend(audio_samples.0.iter().copied().take(fft_size));
+                let drain_amount = audio_samples.0.len().saturating_sub(fft_size / 2);
                 audio_samples.0.drain(..drain_amount);
-                Some(analysis_vec)
+                true
             }
         }
         AudioSource::Microphone => {
             if mic_buffer.0.len() < fft_size {
-                None
+                false
             } else {
-                let buffer_len = mic_buffer.0.len();
-                let analysis_vec = mic_buffer.0.iter().copied().take(fft_size).collect();
-                let drain_amount = buffer_len.saturating_sub(fft_size / 2);
+                fft_buffer.0.clear();
+                fft_buffer
+                    .0
+                    .extend(mic_buffer.0.iter().copied().take(fft_size));
+                let drain_amount = mic_buffer.0.len().saturating_sub(fft_size / 2);
                 mic_buffer.0.drain(..drain_amount);
-                Some(analysis_vec)
+                true
             }
         }
-        AudioSource::None => None,
+        AudioSource::None => false,
     };
 
-    let Some(samples_slice) = analysis_buffer else {
+    if !has_data {
         return;
-    };
+    }
 
-    let hann_window = hann_window(&samples_slice);
+    // 2.3: Apply precomputed Hann window coefficients in-place
+    for (sample, coeff) in fft_buffer.0.iter_mut().zip(hann_coeffs.0.iter()) {
+        *sample *= coeff;
+    }
 
     let spectrum = match samples_fft_to_spectrum(
-        &hann_window,
+        &fft_buffer.0,
         audio_info.sample_rate,
         FrequencyLimit::Range(20.0, 20000.0),
         Some(&divide_by_N_sqrt),
@@ -530,19 +589,20 @@ pub fn audio_analysis_system(
         }
     };
 
-    let squared_sum = samples_slice.iter().map(|s| s * s).sum::<f32>();
-    audio_analysis.volume = (squared_sum / samples_slice.len() as f32).sqrt();
+    let squared_sum = fft_buffer.0.iter().map(|s| s * s).sum::<f32>();
+    audio_analysis.volume = (squared_sum / fft_buffer.0.len() as f32).sqrt();
 
-    let spectrum_data: Vec<(f32, f32)> = spectrum
-        .data()
-        .iter()
-        .map(|(f, v)| (f.val(), v.val()))
-        .collect();
+    // 2.7: Reuse spectrum_buffer instead of allocating a new Vec
+    audio_analysis.spectrum_buffer.clear();
+    audio_analysis
+        .spectrum_buffer
+        .extend(spectrum.data().iter().map(|(f, v)| (f.val(), v.val())));
 
     if !audio_analysis.previous_spectrum.is_empty()
-        && audio_analysis.previous_spectrum.len() == spectrum_data.len()
+        && audio_analysis.previous_spectrum.len() == audio_analysis.spectrum_buffer.len()
     {
-        let sum_of_squared_diffs = spectrum_data
+        let sum_of_squared_diffs = audio_analysis
+            .spectrum_buffer
             .iter()
             .zip(&audio_analysis.previous_spectrum)
             .map(|((_, cur_mag), (_, prev_mag))| (cur_mag - prev_mag).powi(2))
@@ -553,18 +613,28 @@ pub fn audio_analysis_system(
     }
 
     let num_bands = config.num_bands;
-    let mut new_bins = vec![0.0; num_bands];
-    let min_freq = 20.0f32;
-    let max_freq = 20000.0f32;
-    let band_limits: Vec<f32> = (0..num_bands)
-        .map(|i| min_freq * (max_freq / min_freq).powf((i as f32 + 1.0) / num_bands as f32))
-        .collect();
+    if num_bands == 0 {
+        return;
+    }
 
+    // 2.4: Cache band_limits, recompute only when num_bands changes
+    if cached_band_limits.num_bands != num_bands {
+        let min_freq = 20.0f32;
+        let max_freq = 20000.0f32;
+        cached_band_limits.limits = (0..num_bands)
+            .map(|i| min_freq * (max_freq / min_freq).powf((i as f32 + 1.0) / num_bands as f32))
+            .collect();
+        cached_band_limits.num_bands = num_bands;
+    }
+
+    let mut new_bins = vec![0.0; num_bands];
     let mut current_band = 0;
     let mut treble_val = 0.0;
 
     for (freq, val) in spectrum.data() {
-        if current_band < num_bands - 1 && freq.val() > band_limits[current_band] {
+        if current_band < num_bands - 1
+            && freq.val() > cached_band_limits.limits[current_band]
+        {
             current_band += 1;
         }
         new_bins[current_band] += val.val();
@@ -587,22 +657,29 @@ pub fn audio_analysis_system(
     audio_analysis.treble_average =
         audio_analysis.treble_average * smoothing + treble_val * (1.0 - smoothing);
 
+    let quarter = (num_bands / 4).max(1);
+    let half = (num_bands / 2).max(1);
+    let three_quarters = (3 * num_bands / 4).max(1);
     audio_analysis.bass = audio_analysis
         .frequency_bins
         .iter()
-        .take(num_bands / 4)
+        .take(quarter)
         .sum();
     audio_analysis.mid = audio_analysis
         .frequency_bins
         .iter()
-        .skip(num_bands / 4)
-        .take(num_bands / 2)
+        .skip(quarter)
+        .take(half)
         .sum();
     audio_analysis.treble = audio_analysis
         .frequency_bins
         .iter()
-        .skip(3 * num_bands / 4)
+        .skip(three_quarters)
         .sum();
 
-    audio_analysis.previous_spectrum = spectrum_data;
+    // Swap spectrum buffer into previous_spectrum without extra allocation
+    std::mem::swap(
+        &mut audio_analysis.previous_spectrum,
+        &mut audio_analysis.spectrum_buffer,
+    );
 }
