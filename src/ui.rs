@@ -528,6 +528,7 @@ fn setup_mic_selection_menu(mut commands: Commands) {
     }
 }
 
+#[allow(clippy::type_complexity)]
 fn mic_selection_interaction(
     mut button_query: Query<(&Interaction, &MicDeviceButton), (Changed<Interaction>, With<Button>)>,
     mut selected_mic: ResMut<SelectedMic>,

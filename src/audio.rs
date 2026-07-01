@@ -215,10 +215,10 @@ pub struct AudioAnalysis {
 }
 
 #[derive(Resource, Default)]
-struct FftBuffer(Vec<f32>);
+pub(crate) struct FftBuffer(Vec<f32>);
 
 #[derive(Resource)]
-struct HannCoefficients(Vec<f32>);
+pub(crate) struct HannCoefficients(Vec<f32>);
 
 impl Default for HannCoefficients {
     fn default() -> Self {
@@ -234,7 +234,7 @@ impl Default for HannCoefficients {
 }
 
 #[derive(Resource, Default)]
-struct CachedBandLimits {
+pub(crate) struct CachedBandLimits {
     num_bands: usize,
     limits: Vec<f32>,
 }
