@@ -1,1 +1,18 @@
 /target
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Debug
+*.pdb
+
+# Environment
+.env
+.env.*
