@@ -51,9 +51,8 @@ fn despawn_scene(mut commands: Commands, scene_query: Query<Entity, With<Viz2DSc
     commands.insert_resource(BarChartState::default());
 }
 
-// Manages the bar chart by checking if the configuration has changed.
-// If the number of bands changes, it despawns the old bars and spawns new ones.
-#[allow(clippy::collapsible_if)]
+// Manages the bar chart by checking if the number of bands has changed.
+// Only rebuilds the bars when necessary, not on every config tweak.
 fn manage_bar_chart(
     mut commands: Commands,
     config: Res<VisualsConfig>,
@@ -61,10 +60,8 @@ fn manage_bar_chart(
     bar_query: Query<Entity, With<VizBar>>,
     scene_query: Query<Entity, With<Viz2DScene>>,
 ) {
-    // Rebuild the bar chart if the config has changed.
-    if config.is_changed() {
+    if config.num_bands != chart_state.num_bands {
         if let Ok(scene_entity) = scene_query.get_single() {
-            // Despawn existing bars before creating new ones.
             for entity in &bar_query {
                 commands.entity(entity).despawn_recursive();
             }
