@@ -36,7 +36,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libasound2-dev libudev-dev pkg-config libx11-dev libxcursor-dev libxi-dev libxrandr-dev libwayland-dev libxkbcommon-dev
       - name: Cache Cargo registry & index
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/registry
@@ -50,9 +50,9 @@ jobs:
           components: rustfmt, clippy
 
       - name: Security Audit
-        uses: actions-rs/audit-check@v1
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cargo install cargo-audit
+          cargo audit
 
       - name: Check Formatting
         run: cargo fmt -- --check
@@ -169,7 +169,7 @@ jobs:
           cp target/release/${{ matrix.artifact_name }} ${{ matrix.asset_name }}
 
       - name: Create Release & Upload Asset
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           files: ${{ matrix.asset_name }}
         env:

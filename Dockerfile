@@ -13,7 +13,8 @@ RUN apt-get update && apt-get install -y \
     libxi-dev \
     libxrandr-dev \
     libwayland-dev \
-    libxkbcommon-dev
+    libxkbcommon-dev \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /usr/src/app
 COPY . .
@@ -28,8 +29,7 @@ RUN cargo build --release
 FROM gcr.io/distroless/cc-debian12
 
 # Copy the compiled binary from the builder stage.
-# Ensure "Rust_visualizer" matches the [[bin]] name in Cargo.toml
-COPY --from=builder /usr/src/app/target/release/Rust_visualizer /app/rust-visualizer
+COPY --from=builder /usr/src/app/target/release/rust-visualizer /app/rust-visualizer
 
 # Define the entrypoint for the container
 ENTRYPOINT ["/app/rust-visualizer"]

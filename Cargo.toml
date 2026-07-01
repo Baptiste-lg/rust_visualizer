@@ -1,5 +1,5 @@
 [package]
-name = "Rust_visualizer"
+name = "rust-visualizer"
 version = "5.0.0"
 edition = "2021"
 
@@ -17,3 +17,4 @@ symphonia = { version = "0.5.2", features = ["all-formats", "all-codecs"] }
 opt-level = 3
 lto = "thin"
 codegen-units = 1
+strip = true

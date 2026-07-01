@@ -12,7 +12,7 @@ mod viz_ico;
 mod viz_orb;
 
 // --- Plugin Imports ---
-use crate::audio::{AudioPlugin, MicStream, PlaybackInfo, SelectedAudioSource};
+use crate::audio::{AudioPlugin, MicStream, PlaybackInfo, PlaybackPosition, SelectedAudioSource};
 use crate::camera::CameraPlugin;
 use crate::config::VisualsConfig;
 use crate::ui::{UiPlugin, UiVisibility};
@@ -38,6 +38,19 @@ pub enum AppState {
     VisualizationIco,
 }
 
+impl AppState {
+    pub fn is_visualization(&self) -> bool {
+        matches!(
+            self,
+            AppState::Visualization2D
+                | AppState::Visualization3D
+                | AppState::VisualizationOrb
+                | AppState::VisualizationDisc
+                | AppState::VisualizationIco
+        )
+    }
+}
+
 #[derive(Resource, Debug, Clone)]
 pub struct ActiveVisualization(pub AppState);
 
@@ -54,6 +67,14 @@ impl Default for VisualizationEnabled {
     fn default() -> Self {
         Self(true)
     }
+}
+
+pub fn in_any_visualization_state(
+    state: Option<Res<State<AppState>>>,
+) -> bool {
+    state
+        .map(|s| s.get().is_visualization())
+        .unwrap_or(false)
 }
 
 fn main() {
@@ -84,6 +105,7 @@ fn main() {
         .init_resource::<VisualizationEnabled>()
         .init_resource::<ActiveVisualization>()
         .init_resource::<PlaybackInfo>()
+        .init_resource::<PlaybackPosition>()
         .init_resource::<UiVisibility>()
         .init_state::<AppState>()
         .add_plugins((
