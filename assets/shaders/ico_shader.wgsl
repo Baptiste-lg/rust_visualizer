@@ -355,8 +355,7 @@ fn calcIntersection(ro: vec3<f32>, rd: vec3<f32>, basis: IcoBasis, t: f32) -> ve
 
     for (var i = 0; i < NUM_OF_TRACE_STEPS; i++) {
         if (h < INTERSECTION_PRECISION || dist > MAX_TRACE_DISTANCE) { break; }
-        let h_val = map(ro + rd * dist, basis, t);
-        h = h_val;
+        h = map(ro + rd * dist, basis, t);
         dist += h;
         id = 1.0;
     }
