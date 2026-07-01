@@ -145,6 +145,8 @@ pub struct PlaybackInfo {
     pub seek_to: Option<f32>,
     pub(crate) last_update: Option<Instant>,
     pub(crate) position_at_last_update: Duration,
+    /// Cached file bytes to avoid re-reading from disk on seek.
+    pub(crate) cached_file_bytes: Option<Vec<u8>>,
 }
 
 impl PlaybackInfo {
@@ -156,6 +158,7 @@ impl PlaybackInfo {
         self.seek_to = None;
         self.last_update = None;
         self.position_at_last_update = Duration::ZERO;
+        self.cached_file_bytes = None;
     }
 }
 
@@ -230,21 +233,33 @@ pub fn manage_audio_playback(
 
             let duration = match get_duration_with_symphonia(path) {
                 Ok(d) => {
-                    info!("✅ Successfully read duration with Symphonia: {:?}", d);
+                    info!("Successfully read duration with Symphonia: {:?}", d);
                     d
                 }
                 Err(e) => {
                     error!(
-                        "❌ Failed to get duration with Symphonia: {}. The progress bar will be incorrect.",
+                        "Failed to get duration with Symphonia: {}. The progress bar will be incorrect.",
                         e
                     );
                     Duration::ZERO
                 }
             };
 
-            let file_bytes = std::fs::read(path).expect("Failed to read music file for playback");
-            let cursor = Cursor::new(file_bytes);
-            let source = Decoder::new(cursor).unwrap();
+            let file_bytes = match std::fs::read(path) {
+                Ok(bytes) => bytes,
+                Err(e) => {
+                    error!("Failed to read music file: {e}");
+                    return;
+                }
+            };
+            let cursor = Cursor::new(file_bytes.clone());
+            let source = match Decoder::new(cursor) {
+                Ok(s) => s,
+                Err(e) => {
+                    error!("Failed to decode audio file: {e}");
+                    return;
+                }
+            };
 
             commands.insert_resource(AudioInfo {
                 sample_rate: source.sample_rate(),
@@ -254,6 +269,7 @@ pub fn manage_audio_playback(
             playback_info.status = PlaybackStatus::Playing;
             playback_info.last_update = Some(Instant::now());
             playback_info.position_at_last_update = Duration::ZERO;
+            playback_info.cached_file_bytes = Some(file_bytes);
 
             let tee_source = AudioDataTee {
                 source: source.convert_samples(),
@@ -265,7 +281,7 @@ pub fn manage_audio_playback(
         AudioSource::Microphone => {
             info!("Starting microphone capture");
             let host = cpal::default_host();
-            let device = selected_mic
+            let device = match selected_mic
                 .0
                 .as_ref()
                 .and_then(|name| {
@@ -273,33 +289,48 @@ pub fn manage_audio_playback(
                         .ok()?
                         .find(|d| d.name().unwrap_or_default() == *name)
                 })
-                .unwrap_or_else(|| {
-                    host.default_input_device()
-                        .expect("No default audio input device found")
-                });
-            let config = device
-                .default_input_config()
-                .expect("Failed to get default input config");
+                .or_else(|| host.default_input_device())
+            {
+                Some(d) => d,
+                None => {
+                    error!("No audio input device found");
+                    return;
+                }
+            };
+            let config = match device.default_input_config() {
+                Ok(c) => c,
+                Err(e) => {
+                    error!("Failed to get default input config: {e}");
+                    return;
+                }
+            };
             info!(
                 "Initializing microphone: {} with config {:?}",
-                device.name().unwrap(),
+                device.name().unwrap_or_default(),
                 config
             );
             commands.insert_resource(AudioInfo {
                 sample_rate: config.sample_rate().0,
             });
             let tx = mic_sender.0.clone();
-            let stream = device
-                .build_input_stream(
-                    &config.into(),
-                    move |data: &[f32], _: &cpal::InputCallbackInfo| {
-                        tx.send(data.to_vec()).ok();
-                    },
-                    |err| error!("An error occurred on the audio stream: {}", err),
-                    None,
-                )
-                .expect("Failed to build input stream");
-            stream.play().expect("Failed to play audio stream");
+            let stream = match device.build_input_stream(
+                &config.into(),
+                move |data: &[f32], _: &cpal::InputCallbackInfo| {
+                    tx.send(data.to_vec()).ok();
+                },
+                |err| error!("An error occurred on the audio stream: {}", err),
+                None,
+            ) {
+                Ok(s) => s,
+                Err(e) => {
+                    error!("Failed to build input stream: {e}");
+                    return;
+                }
+            };
+            if let Err(e) = stream.play() {
+                error!("Failed to start audio stream: {e}");
+                return;
+            }
             *mic_stream = MicStream(Some(stream));
         }
         AudioSource::None => {
@@ -308,7 +339,6 @@ pub fn manage_audio_playback(
     }
 }
 
-#[allow(clippy::collapsible_if)]
 fn apply_playback_changes(
     mut playback_info: ResMut<PlaybackInfo>,
     sink: NonSend<Sink>,
@@ -344,8 +374,8 @@ fn apply_playback_changes(
         if !sink.is_paused() {
             if let Some(last_update) = playback_info.last_update.take() {
                 let elapsed = last_update.elapsed().as_secs_f32() * sink.speed();
-                playback_info.position =
-                    playback_info.position_at_last_update + Duration::from_secs_f32(elapsed);
+                playback_info.position = playback_info.position_at_last_update
+                    + Duration::from_secs_f32(elapsed);
             }
             playback_info.last_update = Some(Instant::now());
             playback_info.position_at_last_update = playback_info.position;
@@ -354,13 +384,22 @@ fn apply_playback_changes(
     }
 
     if let Some(seek_pos_secs) = playback_info.seek_to.take() {
-        if let AudioSource::File(path) = &selected_source.0 {
+        if let AudioSource::File(_) = &selected_source.0 {
             info!("Seeking to {} seconds", seek_pos_secs);
             let seek_duration = Duration::from_secs_f32(seek_pos_secs);
 
-            let file_bytes = std::fs::read(path).expect("Failed to read music file for seeking");
-            let cursor = Cursor::new(file_bytes);
-            let source = Decoder::new(cursor).unwrap();
+            let Some(file_bytes) = playback_info.cached_file_bytes.as_ref() else {
+                error!("No cached file bytes available for seeking");
+                return;
+            };
+            let cursor = Cursor::new(file_bytes.clone());
+            let source = match Decoder::new(cursor) {
+                Ok(s) => s,
+                Err(e) => {
+                    error!("Failed to decode audio for seeking: {e}");
+                    return;
+                }
+            };
 
             let new_source = source.skip_duration(seek_duration).convert_samples();
 
@@ -478,13 +517,18 @@ pub fn audio_analysis_system(
 
     let hann_window = hann_window(&samples_slice);
 
-    let spectrum = samples_fft_to_spectrum(
+    let spectrum = match samples_fft_to_spectrum(
         &hann_window,
         audio_info.sample_rate,
         FrequencyLimit::Range(20.0, 20000.0),
         Some(&divide_by_N_sqrt),
-    )
-    .expect("Failed to compute spectrum");
+    ) {
+        Ok(s) => s,
+        Err(e) => {
+            error!("Failed to compute spectrum: {e:?}");
+            return;
+        }
+    };
 
     let squared_sum = samples_slice.iter().map(|s| s * s).sum::<f32>();
     audio_analysis.volume = (squared_sum / samples_slice.len() as f32).sqrt();

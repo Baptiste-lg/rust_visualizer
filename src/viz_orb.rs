@@ -92,14 +92,18 @@ fn deform_orb(
     }
 
     // Calculate the total amplitude of the bass frequencies.
-    let total_bass_amplitude = audio_analysis.frequency_bins[0..config.num_bands / 4]
+    let bass_count = (config.num_bands / 4).max(1);
+    let bass_end = bass_count.min(audio_analysis.frequency_bins.len());
+    let total_bass_amplitude = audio_analysis.frequency_bins[..bass_end]
         .iter()
         .sum::<f32>()
-        / (config.num_bands / 4) as f32;
+        / bass_count as f32;
 
     for (mesh_handle, material_handle, orb) in &mut query {
         if let Some(mesh) = meshes.get_mut(mesh_handle) {
-            let vertices = mesh.attribute_mut(Mesh::ATTRIBUTE_POSITION).unwrap();
+            let Some(vertices) = mesh.attribute_mut(Mesh::ATTRIBUTE_POSITION) else {
+                continue;
+            };
 
             // The main deformation logic happens here.
             if let VertexAttributeValues::Float32x3(vertex_data) = vertices {

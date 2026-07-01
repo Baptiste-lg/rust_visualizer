@@ -59,11 +59,25 @@ impl Default for VisualizationEnabled {
 fn main() {
     let mut app = App::new();
 
-    let (stream, stream_handle) = OutputStream::try_default().unwrap();
+    let (stream, stream_handle) = match OutputStream::try_default() {
+        Ok(result) => result,
+        Err(e) => {
+            eprintln!("Fatal: No audio output device found: {e}");
+            std::process::exit(1);
+        }
+    };
+
+    let sink = match Sink::try_new(&stream_handle) {
+        Ok(s) => s,
+        Err(e) => {
+            eprintln!("Fatal: Failed to create audio sink: {e}");
+            std::process::exit(1);
+        }
+    };
 
     app.add_plugins(DefaultPlugins)
         .insert_non_send_resource(stream)
-        .insert_non_send_resource(Sink::try_new(&stream_handle).unwrap())
+        .insert_non_send_resource(sink)
         .insert_non_send_resource(MicStream(None))
         .init_resource::<VisualsConfig>()
         .init_resource::<SelectedAudioSource>()
