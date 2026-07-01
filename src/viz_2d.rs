@@ -74,9 +74,12 @@ fn manage_bar_chart(
 // Spawns the individual bars for the 2D visualizer.
 fn spawn_visuals(mut commands: Commands, config: &VisualsConfig, parent_entity: Entity) {
     let num_bars = config.num_bands;
+    if num_bars == 0 {
+        return;
+    }
     let bar_width = 40.0;
     let spacing = 10.0;
-    let total_width = (num_bars as f32 * bar_width) + ((num_bars - 1) as f32 * spacing);
+    let total_width = (num_bars as f32 * bar_width) + ((num_bars.saturating_sub(1)) as f32 * spacing);
     let start_x = -total_width / 2.0;
 
     commands.entity(parent_entity).with_children(|parent| {
@@ -100,6 +103,7 @@ fn spawn_visuals(mut commands: Commands, config: &VisualsConfig, parent_entity: 
 
 // Updates the height and color of the bars based on the audio analysis.
 fn update_2d_visuals(
+    time: Res<Time>,
     audio_analysis: Res<AudioAnalysis>,
     config: Res<VisualsConfig>,
     mut query: Query<(&mut Sprite, &mut Transform, &VizBar)>,
@@ -108,7 +112,8 @@ fn update_2d_visuals(
         return;
     }
 
-    let smoothing_factor = 0.3;
+    let smoothing_speed = 8.0;
+    let smoothing_factor = 1.0 - (-smoothing_speed * time.delta_seconds()).exp();
 
     for (mut sprite, mut transform, bar) in &mut query {
         if let Some(amplitude) = audio_analysis.frequency_bins.get(bar.index) {

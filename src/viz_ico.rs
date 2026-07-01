@@ -78,6 +78,7 @@ fn update_ico_material(
     mut materials: ResMut<Assets<IcoMaterial>>,
     q_window: Query<&Window, With<PrimaryWindow>>,
     q_camera: Query<&OrthographicProjection, With<MainCamera2D>>,
+    q_ico: Query<&Handle<IcoMaterial>, With<IcoScene>>,
 ) {
     let Ok(window) = q_window.get_single() else {
         return;
@@ -93,28 +94,25 @@ fn update_ico_material(
         1.0
     };
 
-    // --- SENSITIVITY LOGIC ---
-    // Retrieve sensitivity from UI (default 4.0)
-    // Multiply by 0.05 (equivalent to dividing by 20) to drastically reduce the base effect.
-    // Thus, at 4.0, we have a factor of 0.2, which is much smoother.
     let sensitivity = config.bass_sensitivity * 0.03;
 
-    for (_, material) in materials.iter_mut() {
-        material.color = Vec4::from(config.ico_color.as_linear_rgba_f32());
+    for handle in &q_ico {
+        if let Some(material) = materials.get_mut(handle) {
+            material.color = Vec4::from(config.ico_color.as_linear_rgba_f32());
 
-        material.resolution_mouse = Vec4::new(width, height, mouse.x, height - mouse.y);
+            material.resolution_mouse = Vec4::new(width, height, mouse.x, height - mouse.y);
 
-        material.time_params.x = time.elapsed_seconds();
-        material.time_params.y = config.ico_speed;
-        material.time_params.z = zoom_level;
+            material.time_params.x = time.elapsed_seconds();
+            material.time_params.y = config.ico_speed;
+            material.time_params.z = zoom_level;
 
-        // Apply 'sensitivity' factor to all bands
-        material.audio_params = Vec4::new(
-            audio_analysis.bass * sensitivity,
-            audio_analysis.mid * sensitivity,
-            audio_analysis.treble * sensitivity,
-            audio_analysis.flux * sensitivity,
-        );
+            material.audio_params = Vec4::new(
+                audio_analysis.bass * sensitivity,
+                audio_analysis.mid * sensitivity,
+                audio_analysis.treble * sensitivity,
+                audio_analysis.flux * sensitivity,
+            );
+        }
     }
 }
 

@@ -107,37 +107,37 @@ fn update_disc_material(
     mut materials: ResMut<Assets<DiscMaterial>>,
     q_window: Query<&Window, With<PrimaryWindow>>,
     q_camera: Query<&OrthographicProjection, With<MainCamera2D>>,
+    q_disc: Query<&Handle<DiscMaterial>, With<DiscScene>>,
 ) {
     let Ok(window) = q_window.get_single() else {
         return;
     };
 
-    // Use PHYSICAL resolution to match frag_coord
     let window_resolution = Vec2::new(
         window.resolution.physical_width() as f32,
         window.resolution.physical_height() as f32,
     );
 
-    // Retrieve camera zoom (mouse wheel)
     let zoom_level = if let Ok(projection) = q_camera.get_single() {
         projection.scale
     } else {
         1.0
     };
 
-    for (_, material) in materials.iter_mut() {
-        material.time = time.elapsed_seconds();
-        material.color = color_to_vec4(config.disc_color);
-        material.radius = config.disc_radius;
-        material.line_thickness = config.disc_line_thickness;
-        material.iterations = config.disc_iterations as f32;
-        material.speed = config.disc_speed;
-        material.center_radius_factor = config.disc_center_radius_factor;
-        material.resolution = window_resolution;
-        material.bass = audio_analysis.bass;
-        material.flux = audio_analysis.flux;
-        material.zoom = zoom_level;
-        // _padding doesn't need to be updated
+    for handle in &q_disc {
+        if let Some(material) = materials.get_mut(handle) {
+            material.time = time.elapsed_seconds();
+            material.color = color_to_vec4(config.disc_color);
+            material.radius = config.disc_radius;
+            material.line_thickness = config.disc_line_thickness;
+            material.iterations = config.disc_iterations as f32;
+            material.speed = config.disc_speed;
+            material.center_radius_factor = config.disc_center_radius_factor;
+            material.resolution = window_resolution;
+            material.bass = audio_analysis.bass;
+            material.flux = audio_analysis.flux;
+            material.zoom = zoom_level;
+        }
     }
 }
 

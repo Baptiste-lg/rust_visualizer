@@ -18,6 +18,7 @@ struct OrbVisual;
 #[derive(Component)]
 struct DeformableOrb {
     original_vertices: Vec<[f32; 3]>,
+    original_normals: Vec<Vec3>,
     noise: Perlin,
 }
 
@@ -42,7 +43,16 @@ fn setup_orb(
     config: Res<VisualsConfig>,
 ) {
     // Create a base IcoSphere mesh with a given subdivision level.
-    let mut sphere_mesh = Sphere::new(3.0).mesh().ico(5).unwrap();
+    let mut sphere_mesh = match Sphere::new(3.0).mesh().ico(5) {
+        Ok(mesh) => mesh,
+        Err(e) => {
+            error!("Failed to create icosphere mesh: {e}. Using fallback subdivision level 3.");
+            Sphere::new(3.0)
+                .mesh()
+                .ico(3)
+                .unwrap_or_else(|_| Sphere::new(3.0).mesh().uv(16, 8))
+        }
+    };
 
     // The mesh must be "un-indexed" or "flattened" so that each triangle
     // has its own unique vertices. This is required for `compute_flat_normals`
@@ -50,17 +60,19 @@ fn setup_orb(
     sphere_mesh.duplicate_vertices();
     sphere_mesh.compute_flat_normals();
 
-    // Store the original positions of the vertices from the flattened mesh.
-    // These will be used as a base for the deformation calculations.
+    // Store the original positions and pre-computed normals of the vertices.
     let original_vertices = match sphere_mesh.attribute(Mesh::ATTRIBUTE_POSITION) {
         Some(VertexAttributeValues::Float32x3(vertices)) => vertices.clone(),
         _ => Vec::new(),
     };
+    let original_normals: Vec<Vec3> = original_vertices
+        .iter()
+        .map(|v| Vec3::from_array(*v).normalize())
+        .collect();
 
-    // Spawn the orb entity.
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(sphere_mesh), // Add the prepared mesh to assets.
+            mesh: meshes.add(sphere_mesh),
             material: materials.add(StandardMaterial {
                 base_color: config.orb_base_color,
                 perceptual_roughness: 0.8,
@@ -72,7 +84,8 @@ fn setup_orb(
         },
         DeformableOrb {
             original_vertices,
-            noise: Perlin::new(1), // Initialize the Perlin noise generator.
+            original_normals,
+            noise: Perlin::new(1),
         },
         OrbVisual,
     ));
@@ -100,47 +113,45 @@ fn deform_orb(
         / bass_count as f32;
 
     for (mesh_handle, material_handle, orb) in &mut query {
-        if let Some(mesh) = meshes.get_mut(mesh_handle) {
-            let Some(vertices) = mesh.attribute_mut(Mesh::ATTRIBUTE_POSITION) else {
-                continue;
-            };
-
-            // The main deformation logic happens here.
-            if let VertexAttributeValues::Float32x3(vertex_data) = vertices {
-                if vertex_data.len() != orb.original_vertices.len() {
+        // Skip deformation if audio is essentially silent
+        if total_bass_amplitude >= 0.001 {
+            if let Some(mesh) = meshes.get_mut(mesh_handle) {
+                let Some(vertices) = mesh.attribute_mut(Mesh::ATTRIBUTE_POSITION) else {
                     continue;
-                }
+                };
 
-                for (i, pos) in vertex_data.iter_mut().enumerate() {
-                    let original_pos = Vec3::from_array(orb.original_vertices[i]);
-                    let normalized_pos = original_pos.normalize();
+                if let VertexAttributeValues::Float32x3(vertex_data) = vertices {
+                    if vertex_data.len() != orb.original_vertices.len() {
+                        continue;
+                    }
 
-                    // Influence the noise with time and treble from the audio.
                     let time_val = time.elapsed_seconds() * config.orb_noise_speed;
                     let treble_factor =
                         1.0 + audio_analysis.treble_average * config.orb_treble_influence;
                     let noise_frequency = config.orb_noise_frequency * treble_factor;
 
-                    // Sample the 3D Perlin noise function.
-                    let noise_input = (normalized_pos * noise_frequency) + time_val;
-                    let noise_value = orb.noise.get([
-                        noise_input.x as f64,
-                        noise_input.y as f64,
-                        noise_input.z as f64,
-                    ]) as f32;
+                    for (i, pos) in vertex_data.iter_mut().enumerate() {
+                        let original_pos = Vec3::from_array(orb.original_vertices[i]);
+                        // Use pre-computed normals instead of normalize() per frame
+                        let normalized_pos = orb.original_normals[i];
 
-                    // Displace the vertex along its normal based on the noise value and bass amplitude.
-                    let displacement = noise_value * total_bass_amplitude * config.bass_sensitivity;
-                    let new_pos = original_pos + normalized_pos * displacement;
+                        let noise_input = (normalized_pos * noise_frequency) + time_val;
+                        let noise_value = orb.noise.get([
+                            noise_input.x as f64,
+                            noise_input.y as f64,
+                            noise_input.z as f64,
+                        ]) as f32;
 
-                    // Assign the new position
-                    *pos = new_pos.into();
+                        let displacement =
+                            noise_value * total_bass_amplitude * config.bass_sensitivity;
+                        let new_pos = original_pos + normalized_pos * displacement;
+
+                        *pos = new_pos.into();
+                    }
                 }
-            }
 
-            // Recalculate the flat normals after deforming the vertices.
-            // This is safe now because we duplicated the vertices at setup.
-            mesh.compute_flat_normals();
+                mesh.compute_flat_normals();
+            }
         }
 
         // Update the material's emissive color based on the bass amplitude.

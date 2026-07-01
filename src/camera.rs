@@ -207,6 +207,9 @@ fn pan_orbit_camera(
 
             if rotation.length_squared() > 0.0 {
                 let window_size = Vec2::new(window.width(), window.height());
+                if window_size.x == 0.0 || window_size.y == 0.0 {
+                    return;
+                }
                 let delta_x = rotation.x / window_size.x * std::f32::consts::PI * 2.0;
                 let delta_y = rotation.y / window_size.y * std::f32::consts::PI;
                 let yaw = Quat::from_rotation_y(-delta_x);
