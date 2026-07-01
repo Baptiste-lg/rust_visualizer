@@ -90,7 +90,7 @@ fn main_ui_layout(
     mut selected_source: ResMut<SelectedAudioSource>,
     mut viz_enabled: ResMut<VisualizationEnabled>,
     mut playback_info: ResMut<PlaybackInfo>,
-    mut playback_pos: ResMut<PlaybackPosition>,
+    playback_pos: ResMut<PlaybackPosition>,
     mut ui_visibility: ResMut<UiVisibility>,
     time: Res<Time>,
     audio_analysis: Res<AudioAnalysis>,

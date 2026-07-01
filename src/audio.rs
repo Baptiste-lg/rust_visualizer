@@ -672,8 +672,6 @@ pub fn audio_analysis_system(
         .sum();
 
     // Swap spectrum buffer into previous_spectrum without extra allocation
-    std::mem::swap(
-        &mut audio_analysis.previous_spectrum,
-        &mut audio_analysis.spectrum_buffer,
-    );
+    let audio = &mut *audio_analysis;
+    std::mem::swap(&mut audio.previous_spectrum, &mut audio.spectrum_buffer);
 }
