@@ -632,9 +632,7 @@ pub fn audio_analysis_system(
     let mut treble_val = 0.0;
 
     for (freq, val) in spectrum.data() {
-        if current_band < num_bands - 1
-            && freq.val() > cached_band_limits.limits[current_band]
-        {
+        if current_band < num_bands - 1 && freq.val() > cached_band_limits.limits[current_band] {
             current_band += 1;
         }
         new_bins[current_band] += val.val();
@@ -660,11 +658,7 @@ pub fn audio_analysis_system(
     let quarter = (num_bands / 4).max(1);
     let half = (num_bands / 2).max(1);
     let three_quarters = (3 * num_bands / 4).max(1);
-    audio_analysis.bass = audio_analysis
-        .frequency_bins
-        .iter()
-        .take(quarter)
-        .sum();
+    audio_analysis.bass = audio_analysis.frequency_bins.iter().take(quarter).sum();
     audio_analysis.mid = audio_analysis
         .frequency_bins
         .iter()

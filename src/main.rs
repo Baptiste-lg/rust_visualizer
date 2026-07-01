@@ -69,12 +69,8 @@ impl Default for VisualizationEnabled {
     }
 }
 
-pub fn in_any_visualization_state(
-    state: Option<Res<State<AppState>>>,
-) -> bool {
-    state
-        .map(|s| s.get().is_visualization())
-        .unwrap_or(false)
+pub fn in_any_visualization_state(state: Option<Res<State<AppState>>>) -> bool {
+    state.map(|s| s.get().is_visualization()).unwrap_or(false)
 }
 
 fn main() {

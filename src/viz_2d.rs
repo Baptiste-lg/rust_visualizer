@@ -79,7 +79,8 @@ fn spawn_visuals(mut commands: Commands, config: &VisualsConfig, parent_entity: 
     }
     let bar_width = 40.0;
     let spacing = 10.0;
-    let total_width = (num_bars as f32 * bar_width) + ((num_bars.saturating_sub(1)) as f32 * spacing);
+    let total_width =
+        (num_bars as f32 * bar_width) + ((num_bars.saturating_sub(1)) as f32 * spacing);
     let start_x = -total_width / 2.0;
 
     commands.entity(parent_entity).with_children(|parent| {
