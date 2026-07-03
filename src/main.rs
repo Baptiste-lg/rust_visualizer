@@ -2,6 +2,8 @@
 
 // --- Module declarations ---
 mod audio;
+#[cfg(target_arch = "wasm32")]
+mod audio_web;
 mod camera;
 mod config;
 mod ui;
@@ -12,7 +14,7 @@ mod viz_ico;
 mod viz_orb;
 
 // --- Plugin Imports ---
-use crate::audio::{AudioPlugin, MicStream, PlaybackInfo, PlaybackPosition, SelectedAudioSource};
+use crate::audio::{AudioPlugin, PlaybackInfo, PlaybackPosition, SelectedAudioSource};
 use crate::camera::CameraPlugin;
 use crate::config::VisualsConfig;
 use crate::ui::{UiPlugin, UiVisibility};
@@ -24,6 +26,10 @@ use crate::viz_orb::VizOrbPlugin;
 
 use bevy::prelude::*;
 use bevy_egui::EguiPlugin;
+
+#[cfg(not(target_arch = "wasm32"))]
+use crate::audio::MicStream;
+#[cfg(not(target_arch = "wasm32"))]
 use rodio::{OutputStream, Sink};
 
 #[derive(States, Debug, Clone, PartialEq, Eq, Hash, Default)]
@@ -74,29 +80,52 @@ pub fn in_any_visualization_state(state: Option<Res<State<AppState>>>) -> bool {
 }
 
 fn main() {
+    #[cfg(target_arch = "wasm32")]
+    console_error_panic_hook::set_once();
+
     let mut app = App::new();
 
-    let (stream, stream_handle) = match OutputStream::try_default() {
-        Ok(result) => result,
-        Err(e) => {
-            eprintln!("Fatal: No audio output device found: {e}");
-            std::process::exit(1);
-        }
-    };
+    // --- Platform-specific default plugins ---
+    #[cfg(not(target_arch = "wasm32"))]
+    app.add_plugins(DefaultPlugins);
 
-    let sink = match Sink::try_new(&stream_handle) {
-        Ok(s) => s,
-        Err(e) => {
-            eprintln!("Fatal: Failed to create audio sink: {e}");
-            std::process::exit(1);
-        }
-    };
+    #[cfg(target_arch = "wasm32")]
+    app.add_plugins(DefaultPlugins.set(WindowPlugin {
+        primary_window: Some(Window {
+            canvas: Some("#bevy-canvas".to_string()),
+            fit_canvas_to_parent: true,
+            prevent_default_event_handling: false,
+            ..default()
+        }),
+        ..default()
+    }));
 
-    app.add_plugins(DefaultPlugins)
-        .insert_non_send_resource(stream)
-        .insert_non_send_resource(sink)
-        .insert_non_send_resource(MicStream(None))
-        .init_resource::<VisualsConfig>()
+    // --- Platform-specific audio I/O resources ---
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        let (stream, stream_handle) = match OutputStream::try_default() {
+            Ok(result) => result,
+            Err(e) => {
+                eprintln!("Fatal: No audio output device found: {e}");
+                std::process::exit(1);
+            }
+        };
+
+        let sink = match Sink::try_new(&stream_handle) {
+            Ok(s) => s,
+            Err(e) => {
+                eprintln!("Fatal: Failed to create audio sink: {e}");
+                std::process::exit(1);
+            }
+        };
+
+        app.insert_non_send_resource(stream)
+            .insert_non_send_resource(sink)
+            .insert_non_send_resource(MicStream(None));
+    }
+
+    // --- Shared resources and plugins ---
+    app.init_resource::<VisualsConfig>()
         .init_resource::<SelectedAudioSource>()
         .init_resource::<VisualizationEnabled>()
         .init_resource::<ActiveVisualization>()
