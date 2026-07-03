@@ -2,18 +2,31 @@
 
 use crate::{config::VisualsConfig, in_any_visualization_state, VisualizationEnabled};
 use bevy::prelude::*;
-use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
-use rodio::{source::Source, Decoder, Sink};
 use spectrum_analyzer::{samples_fft_to_spectrum, scaling::divide_by_N_sqrt, FrequencyLimit};
 use std::collections::VecDeque;
+use std::path::PathBuf;
+use std::time::Duration;
+
+#[cfg(not(target_arch = "wasm32"))]
+use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
+#[cfg(not(target_arch = "wasm32"))]
+use rodio::{source::Source, Decoder, Sink};
+#[cfg(not(target_arch = "wasm32"))]
 use std::io::Cursor;
-use std::path::{Path, PathBuf};
+#[cfg(not(target_arch = "wasm32"))]
+use std::path::Path;
+#[cfg(not(target_arch = "wasm32"))]
 use std::sync::mpsc::{Receiver, Sender};
+#[cfg(not(target_arch = "wasm32"))]
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+#[cfg(not(target_arch = "wasm32"))]
+use std::time::Instant;
 
-// --- Symphonia Helper ---
+// ---------------------------------------------------------------------------
+// Native-only: Symphonia duration helper
+// ---------------------------------------------------------------------------
 
+#[cfg(not(target_arch = "wasm32"))]
 fn get_duration_with_symphonia(path: &Path) -> Result<Duration, Box<dyn std::error::Error>> {
     let src = std::fs::File::open(path)?;
     let mss = symphonia::core::io::MediaSourceStream::new(Box::new(src), Default::default());
@@ -39,13 +52,17 @@ fn get_duration_with_symphonia(path: &Path) -> Result<Duration, Box<dyn std::err
     Ok(Duration::from_secs(total_time.seconds) + Duration::from_secs_f64(total_time.frac))
 }
 
-// --- Bevy Plugin and Components ---
+// ---------------------------------------------------------------------------
+// Native-only: AudioDataTee (taps audio samples for analysis)
+// ---------------------------------------------------------------------------
 
+#[cfg(not(target_arch = "wasm32"))]
 struct AudioDataTee<S> {
     source: S,
     sender: Sender<f32>,
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 impl<S> Iterator for AudioDataTee<S>
 where
     S: Iterator<Item = f32>,
@@ -59,6 +76,7 @@ where
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 impl<S> Source for AudioDataTee<S>
 where
     S: Source<Item = f32>,
@@ -77,53 +95,88 @@ where
     }
 }
 
+// ---------------------------------------------------------------------------
+// Plugin
+// ---------------------------------------------------------------------------
+
 pub struct AudioPlugin;
 
 #[derive(Resource)]
 pub struct AnalysisTimer(pub Timer);
 
+#[cfg(not(target_arch = "wasm32"))]
 #[derive(Resource, Clone)]
 pub struct AnalysisAudioSender(pub Sender<f32>);
+#[cfg(not(target_arch = "wasm32"))]
 pub struct AnalysisAudioReceiver(pub Receiver<f32>);
 
 impl Plugin for AudioPlugin {
     fn build(&self, app: &mut App) {
-        let (mic_tx, mic_rx) = std::sync::mpsc::channel::<Vec<f32>>();
-        let (analysis_tx, analysis_rx) = std::sync::mpsc::channel::<f32>();
-
         app.insert_resource(AnalysisTimer(Timer::new(
             Duration::from_secs_f32(1.0 / 60.0),
             TimerMode::Repeating,
         )))
-        .insert_resource(MicAudioSender(mic_tx))
-        .insert_non_send_resource(MicAudioReceiver(mic_rx))
-        .insert_resource(AnalysisAudioSender(analysis_tx))
-        .insert_non_send_resource(AnalysisAudioReceiver(analysis_rx))
         .init_resource::<AudioSamples>()
         .init_resource::<AudioAnalysis>()
         .init_resource::<SelectedMic>()
         .init_resource::<MicAudioBuffer>()
         .init_resource::<FftBuffer>()
         .init_resource::<HannCoefficients>()
-        .init_resource::<CachedBandLimits>()
-        .add_systems(
-            Update,
-            (
-                read_mic_data_system,
-                read_analysis_data_system,
-                manage_audio_playback,
-                apply_playback_changes.after(manage_audio_playback),
-                update_playback_position.after(apply_playback_changes),
-                audio_analysis_system
-                    .after(read_mic_data_system)
-                    .after(read_analysis_data_system)
-                    .after(manage_audio_playback)
-                    .run_if(|viz_enabled: Res<VisualizationEnabled>| viz_enabled.0),
-            )
-                .run_if(in_any_visualization_state),
-        );
+        .init_resource::<CachedBandLimits>();
+
+        // --- Native I/O systems ---
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            let (mic_tx, mic_rx) = std::sync::mpsc::channel::<Vec<f32>>();
+            let (analysis_tx, analysis_rx) = std::sync::mpsc::channel::<f32>();
+
+            app.insert_resource(MicAudioSender(mic_tx))
+                .insert_non_send_resource(MicAudioReceiver(mic_rx))
+                .insert_resource(AnalysisAudioSender(analysis_tx))
+                .insert_non_send_resource(AnalysisAudioReceiver(analysis_rx))
+                .add_systems(
+                    Update,
+                    (
+                        read_mic_data_system,
+                        read_analysis_data_system,
+                        manage_audio_playback,
+                        apply_playback_changes.after(manage_audio_playback),
+                        update_playback_position.after(apply_playback_changes),
+                        audio_analysis_system
+                            .after(read_mic_data_system)
+                            .after(read_analysis_data_system)
+                            .after(manage_audio_playback)
+                            .run_if(|viz_enabled: Res<VisualizationEnabled>| viz_enabled.0),
+                    )
+                        .run_if(in_any_visualization_state),
+                );
+        }
+
+        // --- WASM I/O systems ---
+        #[cfg(target_arch = "wasm32")]
+        {
+            use crate::audio_web;
+            app.add_systems(
+                Update,
+                (
+                    audio_web::web_manage_source,
+                    audio_web::web_poll_file_loaded,
+                    audio_web::web_read_audio_data,
+                    audio_web::web_apply_playback,
+                    audio_web::web_update_position,
+                    audio_analysis_system
+                        .after(audio_web::web_read_audio_data)
+                        .run_if(|viz_enabled: Res<VisualizationEnabled>| viz_enabled.0),
+                )
+                    .run_if(in_any_visualization_state),
+            );
+        }
     }
 }
+
+// ---------------------------------------------------------------------------
+// Shared resources
+// ---------------------------------------------------------------------------
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub enum PlaybackStatus {
@@ -138,16 +191,16 @@ pub struct PlaybackInfo {
     pub speed: f32,
     pub duration: Duration,
     pub seek_to: Option<f32>,
-    /// Cached file bytes to avoid re-reading from disk on seek.
+    #[cfg(not(target_arch = "wasm32"))]
     pub(crate) cached_file_bytes: Option<Arc<Vec<u8>>>,
 }
 
-/// Separate resource for position tracking so that per-frame position updates
-/// don't trigger change detection on PlaybackInfo.
 #[derive(Resource, Debug, Default)]
 pub struct PlaybackPosition {
     pub position: Duration,
+    #[cfg(not(target_arch = "wasm32"))]
     pub(crate) last_update: Option<Instant>,
+    #[cfg(not(target_arch = "wasm32"))]
     pub(crate) position_at_last_update: Duration,
 }
 
@@ -157,15 +210,21 @@ impl PlaybackInfo {
         self.speed = 1.0;
         self.duration = Duration::ZERO;
         self.seek_to = None;
-        self.cached_file_bytes = None;
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            self.cached_file_bytes = None;
+        }
     }
 }
 
 impl PlaybackPosition {
     pub fn reset(&mut self) {
         self.position = Duration::ZERO;
-        self.last_update = None;
-        self.position_at_last_update = Duration::ZERO;
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            self.last_update = None;
+            self.position_at_last_update = Duration::ZERO;
+        }
     }
 }
 
@@ -183,11 +242,14 @@ pub struct SelectedAudioSource(pub AudioSource);
 #[derive(Resource, Default)]
 pub struct SelectedMic(pub Option<String>);
 
+#[cfg(not(target_arch = "wasm32"))]
 #[derive(Resource, Clone)]
 pub struct MicAudioSender(pub Sender<Vec<f32>>);
+#[cfg(not(target_arch = "wasm32"))]
 pub struct MicAudioReceiver(pub Receiver<Vec<f32>>);
 
 #[allow(dead_code)]
+#[cfg(not(target_arch = "wasm32"))]
 pub struct MicStream(pub Option<cpal::Stream>);
 
 #[derive(Resource, Default)]
@@ -239,6 +301,11 @@ pub(crate) struct CachedBandLimits {
     limits: Vec<f32>,
 }
 
+// ---------------------------------------------------------------------------
+// Native-only I/O systems
+// ---------------------------------------------------------------------------
+
+#[cfg(not(target_arch = "wasm32"))]
 #[allow(clippy::too_many_arguments)]
 pub fn manage_audio_playback(
     mut commands: Commands,
@@ -374,6 +441,7 @@ pub fn manage_audio_playback(
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 fn apply_playback_changes(
     mut playback_info: ResMut<PlaybackInfo>,
     mut playback_pos: ResMut<PlaybackPosition>,
@@ -462,6 +530,7 @@ fn apply_playback_changes(
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 fn update_playback_position(
     mut playback_info: ResMut<PlaybackInfo>,
     mut playback_pos: ResMut<PlaybackPosition>,
@@ -486,6 +555,7 @@ fn update_playback_position(
 
 const MAX_AUDIO_BUFFER: usize = 4096 * 10;
 
+#[cfg(not(target_arch = "wasm32"))]
 pub fn read_analysis_data_system(
     receiver: Option<NonSend<AnalysisAudioReceiver>>,
     mut buffer: ResMut<AudioSamples>,
@@ -499,6 +569,7 @@ pub fn read_analysis_data_system(
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 pub fn read_mic_data_system(
     receiver: Option<NonSend<MicAudioReceiver>>,
     mut buffer: ResMut<MicAudioBuffer>,
@@ -513,6 +584,10 @@ pub fn read_mic_data_system(
         }
     }
 }
+
+// ---------------------------------------------------------------------------
+// Shared: FFT analysis system (identical on native and WASM)
+// ---------------------------------------------------------------------------
 
 #[allow(clippy::too_many_arguments)]
 pub fn audio_analysis_system(
@@ -536,7 +611,6 @@ pub fn audio_analysis_system(
     let Some(audio_info) = audio_info else { return };
     let fft_size = 4096;
 
-    // 2.2: Reuse FftBuffer instead of allocating a new Vec each frame
     let has_data = match &audio_source.0 {
         AudioSource::File(_) => {
             if audio_samples.0.len() < fft_size {
@@ -571,7 +645,6 @@ pub fn audio_analysis_system(
         return;
     }
 
-    // 2.3: Apply precomputed Hann window coefficients in-place
     for (sample, coeff) in fft_buffer.0.iter_mut().zip(hann_coeffs.0.iter()) {
         *sample *= coeff;
     }
@@ -592,7 +665,6 @@ pub fn audio_analysis_system(
     let squared_sum = fft_buffer.0.iter().map(|s| s * s).sum::<f32>();
     audio_analysis.volume = (squared_sum / fft_buffer.0.len() as f32).sqrt();
 
-    // 2.7: Reuse spectrum_buffer instead of allocating a new Vec
     audio_analysis.spectrum_buffer.clear();
     audio_analysis
         .spectrum_buffer
@@ -617,7 +689,6 @@ pub fn audio_analysis_system(
         return;
     }
 
-    // 2.4: Cache band_limits, recompute only when num_bands changes
     if cached_band_limits.num_bands != num_bands {
         let min_freq = 20.0f32;
         let max_freq = 20000.0f32;
@@ -671,7 +742,6 @@ pub fn audio_analysis_system(
         .skip(three_quarters)
         .sum();
 
-    // Swap spectrum buffer into previous_spectrum without extra allocation
     let audio = &mut *audio_analysis;
     std::mem::swap(&mut audio.previous_spectrum, &mut audio.spectrum_buffer);
 }
