@@ -10,8 +10,10 @@ use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 use bevy_egui::egui::color_picker;
 use bevy_egui::{egui, EguiContexts, EguiSet};
-use cpal::traits::{DeviceTrait, HostTrait};
 use std::time::Duration;
+
+#[cfg(not(target_arch = "wasm32"))]
+use cpal::traits::{DeviceTrait, HostTrait};
 
 // A resource to know if the UI is shown or hidden
 #[derive(Resource)]
@@ -24,7 +26,6 @@ impl Default for UiVisibility {
     fn default() -> Self {
         Self {
             visible: true,
-            // Timer set to 5 seconds, runs once
             hint_timer: Timer::from_seconds(5.0, TimerMode::Once),
         }
     }
@@ -39,22 +40,28 @@ impl Plugin for UiPlugin {
                 Update,
                 menu_button_interaction.run_if(in_state(AppState::MainMenu)),
             )
-            .add_systems(OnExit(AppState::MainMenu), cleanup_menu)
-            .add_systems(OnEnter(AppState::MicSelection), setup_mic_selection_menu)
-            .add_systems(
-                Update,
-                mic_selection_interaction.run_if(in_state(AppState::MicSelection)),
+            .add_systems(OnExit(AppState::MainMenu), cleanup_menu);
+
+        // Mic selection menu — native only (browser handles device selection)
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            app.add_systems(OnEnter(AppState::MicSelection), setup_mic_selection_menu)
+                .add_systems(
+                    Update,
+                    mic_selection_interaction.run_if(in_state(AppState::MicSelection)),
+                );
+        }
+        app.add_systems(OnExit(AppState::MicSelection), cleanup_menu);
+
+        app.add_systems(
+            Update,
+            (
+                toggle_ui_visibility,
+                main_ui_layout,
             )
-            .add_systems(OnExit(AppState::MicSelection), cleanup_menu)
-            .add_systems(
-                Update,
-                (
-                    toggle_ui_visibility, // System for 'H' key
-                    main_ui_layout,       // The main system handling panels
-                )
-                    .after(EguiSet::InitContexts)
-                    .run_if(in_any_visualization_state),
-            );
+                .after(EguiSet::InitContexts)
+                .run_if(in_any_visualization_state),
+        );
     }
 }
 
@@ -62,11 +69,14 @@ impl Plugin for UiPlugin {
 #[derive(Component)]
 enum MenuButtonAction {
     Start,
+    #[cfg(not(target_arch = "wasm32"))]
     ToMicSelection,
 }
 
 #[derive(Component)]
 struct MainMenuUI;
+
+#[cfg(not(target_arch = "wasm32"))]
 #[derive(Component)]
 struct MicDeviceButton(String);
 
@@ -74,8 +84,6 @@ struct MicDeviceButton(String);
 fn toggle_ui_visibility(keyboard: Res<ButtonInput<KeyCode>>, mut ui_viz: ResMut<UiVisibility>) {
     if keyboard.just_pressed(KeyCode::KeyH) {
         ui_viz.visible = !ui_viz.visible;
-
-        // If we just hid the UI, reset the timer to show the hint for 5s
         if !ui_viz.visible {
             ui_viz.hint_timer.reset();
         }
@@ -107,10 +115,7 @@ fn main_ui_layout(
 
     // 1. LOGIC WHEN UI IS HIDDEN
     if !ui_visibility.visible {
-        // Update the timer
         ui_visibility.hint_timer.tick(time.delta());
-
-        // Only show the floating hint if the timer is NOT finished
         if !ui_visibility.hint_timer.finished() {
             egui::Area::new("ui_hidden_hint".into())
                 .anchor(egui::Align2::CENTER_TOP, egui::vec2(0.0, 10.0))
@@ -124,7 +129,6 @@ fn main_ui_layout(
                     });
                 });
         }
-        // Stop here, don't render panels
         return;
     }
 
@@ -140,20 +144,17 @@ fn main_ui_layout(
             ui.heading("🎨 Visualizer Settings");
             ui.separator();
 
-            // Global Parameter
             ui.label("Amplitude Sensitivity");
             ui.add(egui::Slider::new(&mut config.bass_sensitivity, 0.1..=10.0));
 
             ui.separator();
 
-            // Contextual Parameters
             egui::ScrollArea::vertical().show(ui, |ui| match current_state {
                 AppState::Visualization2D => {
                     ui.label("Inactive Color");
                     color_picker_widget(ui, &mut config.viz2d_inactive_color);
                     ui.label("Active Color");
                     color_picker_widget(ui, &mut config.viz2d_active_color);
-
                     ui.separator();
                     ui.label("Frequency Bands (Rebuilds Grid)");
                     ui.add(egui::Slider::new(&mut config.num_bands, 4..=64));
@@ -164,11 +165,9 @@ fn main_ui_layout(
                     ui.add(egui::Slider::new(&mut config.viz3d_column_size, 1..=16));
                     ui.label("Cube Base Color");
                     color_picker_widget(ui, &mut config.viz3d_base_color);
-
                     ui.separator();
                     ui.label("Frequency Bands (Rebuilds Grid)");
                     ui.add(egui::Slider::new(&mut config.num_bands, 4..=32));
-
                     ui.separator();
                     render_bloom_ui(ui, &mut config);
                 }
@@ -177,57 +176,36 @@ fn main_ui_layout(
                     color_picker_widget(ui, &mut config.orb_base_color);
                     ui.label("Peak Color");
                     color_picker_widget(ui, &mut config.orb_peak_color);
-
                     ui.separator();
                     ui.label("Noise Speed");
                     ui.add(egui::Slider::new(&mut config.orb_noise_speed, 0.1..=5.0));
                     ui.label("Noise Frequency");
-                    ui.add(egui::Slider::new(
-                        &mut config.orb_noise_frequency,
-                        0.5..=10.0,
-                    ));
+                    ui.add(egui::Slider::new(&mut config.orb_noise_frequency, 0.5..=10.0));
                     ui.label("Treble Influence");
-                    ui.add(egui::Slider::new(
-                        &mut config.orb_treble_influence,
-                        0.0..=1.0,
-                    ));
-
+                    ui.add(egui::Slider::new(&mut config.orb_treble_influence, 0.0..=1.0));
                     ui.separator();
                     render_bloom_ui(ui, &mut config);
                 }
                 AppState::VisualizationDisc => {
                     ui.label("Disc Color");
                     color_picker_widget(ui, &mut config.disc_color);
-
                     ui.label("Radius");
                     ui.add(egui::Slider::new(&mut config.disc_radius, 0.1..=2.0));
-
                     ui.label("Line Thickness");
-                    ui.add(egui::Slider::new(
-                        &mut config.disc_line_thickness,
-                        0.01..=0.5,
-                    ));
-
+                    ui.add(egui::Slider::new(&mut config.disc_line_thickness, 0.01..=0.5));
                     ui.label("Iterations (Echoes)");
                     ui.add(egui::Slider::new(&mut config.disc_iterations, 1..=50));
-
                     ui.label("Rotation Speed");
                     ui.add(egui::Slider::new(&mut config.disc_speed, -5.0..=5.0));
-
                     ui.label("Center Factor");
-                    ui.add(egui::Slider::new(
-                        &mut config.disc_center_radius_factor,
-                        -1.0..=2.0,
-                    ));
+                    ui.add(egui::Slider::new(&mut config.disc_center_radius_factor, -1.0..=2.0));
                 }
                 AppState::VisualizationIco => {
                     ui.label("Metallic Color");
                     color_picker_widget(ui, &mut config.ico_color);
-
                     ui.label("Rotation Speed");
                     ui.add(egui::Slider::new(&mut config.ico_speed, -3.0..=3.0));
                 }
-                // MainMenu and MicSelection are filtered out by the run_if guard
                 AppState::MainMenu | AppState::MicSelection => {}
             });
         });
@@ -296,17 +274,28 @@ fn main_ui_layout(
             ui.separator();
             ui.heading("🎵 Audio Source");
 
+            // --- Microphone button ---
             if ui.button("🎤 Microphone").clicked() {
+                #[cfg(target_arch = "wasm32")]
+                crate::audio_web::request_microphone();
+
                 selected_source.0 = AudioSource::Microphone;
             }
 
+            // --- File picker button ---
             if ui.button("📂 Load File").clicked() {
-                if let Some(path) = rfd::FileDialog::new()
-                    .add_filter("audio", &["mp3", "wav"])
-                    .pick_file()
+                #[cfg(not(target_arch = "wasm32"))]
                 {
-                    selected_source.0 = AudioSource::File(path);
+                    if let Some(path) = rfd::FileDialog::new()
+                        .add_filter("audio", &["mp3", "wav"])
+                        .pick_file()
+                    {
+                        selected_source.0 = AudioSource::File(path);
+                    }
                 }
+
+                #[cfg(target_arch = "wasm32")]
+                crate::audio_web::request_file();
             }
 
             // Playback Controls (If file)
@@ -326,7 +315,6 @@ fn main_ui_layout(
                         };
                     }
 
-                    // Speed
                     ui.label("Speed:");
                     ui.add(egui::Slider::new(&mut playback_info.speed, 0.25..=2.0).text("x"));
                 });
@@ -352,7 +340,6 @@ fn main_ui_layout(
             ui.separator();
             ui.checkbox(&mut config.details_panel_enabled, "Show Analysis Data");
 
-            // Integrated details panel
             if config.details_panel_enabled {
                 ui.separator();
                 ui.label(egui::RichText::new("Analysis Data").strong());
@@ -364,7 +351,6 @@ fn main_ui_layout(
                 ui.label(format!("Flux:   {:.2}", audio_analysis.flux));
             }
 
-            // --- BOTTOM SECTION: Hide UI Hint ---
             ui.add_space(20.0);
             ui.separator();
             ui.vertical_centered(|ui| {
@@ -386,13 +372,9 @@ fn render_bloom_ui(ui: &mut egui::Ui, config: &mut VisualsConfig) {
     }
 }
 
-// Adaptation for egui 0.27+ and Bevy Color.
-// Both Bevy's Color::r()/rgba() and egui's Rgba operate in sRGB space here,
-// so the round-trip preserves the intended color values.
 fn color_picker_widget(ui: &mut egui::Ui, color: &mut Color) {
     let rgba_array = [color.r(), color.g(), color.b(), color.a()];
 
-    // 2. Create Egui color (Rgba is premultiplied by default)
     let mut egui_color = egui::Rgba::from_rgba_unmultiplied(
         rgba_array[0],
         rgba_array[1],
@@ -400,17 +382,15 @@ fn color_picker_widget(ui: &mut egui::Ui, color: &mut Color) {
         rgba_array[3],
     );
 
-    // 3. Display Widget
     if color_picker::color_edit_button_rgba(ui, &mut egui_color, color_picker::Alpha::Opaque)
         .changed()
     {
-        // 4. Convert back to Bevy Color
         let result = egui_color.to_rgba_unmultiplied();
         *color = Color::rgba(result[0], result[1], result[2], result[3]);
     }
 }
 
-// --- Setup Main Menu (Unchanged) ---
+// --- Setup Main Menu ---
 fn setup_main_menu(mut commands: Commands) {
     commands.spawn((Camera2dBundle::default(), MainMenuUI));
     commands
@@ -431,6 +411,8 @@ fn setup_main_menu(mut commands: Commands) {
         ))
         .with_children(|parent| {
             create_menu_button(parent, "Start Visualization", MenuButtonAction::Start);
+
+            #[cfg(not(target_arch = "wasm32"))]
             create_menu_button(
                 parent,
                 "Select Microphone",
@@ -454,6 +436,7 @@ fn menu_button_interaction(
                 MenuButtonAction::Start => {
                     next_app_state.set(active_viz.0.clone());
                 }
+                #[cfg(not(target_arch = "wasm32"))]
                 MenuButtonAction::ToMicSelection => {
                     next_app_state.set(AppState::MicSelection);
                 }
@@ -462,6 +445,7 @@ fn menu_button_interaction(
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 fn setup_mic_selection_menu(mut commands: Commands) {
     commands.spawn((Camera2dBundle::default(), MainMenuUI));
     let mut root = commands.spawn((
@@ -528,6 +512,7 @@ fn setup_mic_selection_menu(mut commands: Commands) {
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 #[allow(clippy::type_complexity)]
 fn mic_selection_interaction(
     mut button_query: Query<(&Interaction, &MicDeviceButton), (Changed<Interaction>, With<Button>)>,
