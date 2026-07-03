@@ -1,0 +1,10 @@
+[build]
+target = "index.html"
+dist = "dist"
+
+# No default features (disables native deps for WASM build)
+[tools]
+wasm-bindgen = "0.2"
+
+[watch]
+watch = ["src", "assets", "index.html"]
