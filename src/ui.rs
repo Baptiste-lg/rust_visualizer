@@ -55,10 +55,7 @@ impl Plugin for UiPlugin {
 
         app.add_systems(
             Update,
-            (
-                toggle_ui_visibility,
-                main_ui_layout,
-            )
+            (toggle_ui_visibility, main_ui_layout)
                 .after(EguiSet::InitContexts)
                 .run_if(in_any_visualization_state),
         );
@@ -180,9 +177,15 @@ fn main_ui_layout(
                     ui.label("Noise Speed");
                     ui.add(egui::Slider::new(&mut config.orb_noise_speed, 0.1..=5.0));
                     ui.label("Noise Frequency");
-                    ui.add(egui::Slider::new(&mut config.orb_noise_frequency, 0.5..=10.0));
+                    ui.add(egui::Slider::new(
+                        &mut config.orb_noise_frequency,
+                        0.5..=10.0,
+                    ));
                     ui.label("Treble Influence");
-                    ui.add(egui::Slider::new(&mut config.orb_treble_influence, 0.0..=1.0));
+                    ui.add(egui::Slider::new(
+                        &mut config.orb_treble_influence,
+                        0.0..=1.0,
+                    ));
                     ui.separator();
                     render_bloom_ui(ui, &mut config);
                 }
@@ -192,13 +195,19 @@ fn main_ui_layout(
                     ui.label("Radius");
                     ui.add(egui::Slider::new(&mut config.disc_radius, 0.1..=2.0));
                     ui.label("Line Thickness");
-                    ui.add(egui::Slider::new(&mut config.disc_line_thickness, 0.01..=0.5));
+                    ui.add(egui::Slider::new(
+                        &mut config.disc_line_thickness,
+                        0.01..=0.5,
+                    ));
                     ui.label("Iterations (Echoes)");
                     ui.add(egui::Slider::new(&mut config.disc_iterations, 1..=50));
                     ui.label("Rotation Speed");
                     ui.add(egui::Slider::new(&mut config.disc_speed, -5.0..=5.0));
                     ui.label("Center Factor");
-                    ui.add(egui::Slider::new(&mut config.disc_center_radius_factor, -1.0..=2.0));
+                    ui.add(egui::Slider::new(
+                        &mut config.disc_center_radius_factor,
+                        -1.0..=2.0,
+                    ));
                 }
                 AppState::VisualizationIco => {
                     ui.label("Metallic Color");

@@ -255,10 +255,7 @@ pub fn web_update_position(
 }
 
 /// Handles source changes (stop audio when source is set to None).
-pub fn web_manage_source(
-    mut commands: Commands,
-    selected_source: Res<SelectedAudioSource>,
-) {
+pub fn web_manage_source(mut commands: Commands, selected_source: Res<SelectedAudioSource>) {
     if !selected_source.is_changed() {
         return;
     }
