@@ -3,15 +3,27 @@ name = "rust-visualizer"
 version = "5.0.0"
 edition = "2021"
 
+[features]
+default = ["native"]
+native = ["dep:rodio", "dep:cpal", "dep:rfd", "dep:symphonia"]
+
 [dependencies]
 bevy = "0.13"
-rodio = "~0.17"
-cpal = "0.15"
 spectrum-analyzer = "1.7"
 bevy_egui = "0.27"
-rfd = "0.14"
 noise = "0.8.2"
-symphonia = { version = "0.5.2", features = ["all-formats", "all-codecs"] }
+
+# Native-only dependencies (audio I/O, file dialogs)
+rodio = { version = "~0.17", optional = true }
+cpal = { version = "0.15", optional = true }
+rfd = { version = "0.14", optional = true }
+symphonia = { version = "0.5.2", features = ["all-formats", "all-codecs"], optional = true }
+
+# WASM dependencies
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen = "0.2"
+js-sys = "0.3"
+console_error_panic_hook = "0.1"
 
 [profile.release]
 opt-level = 3
