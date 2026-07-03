@@ -1,0 +1,8 @@
+# Ignore advisories for transitive dependencies we cannot control (Bevy internals)
+[advisories]
+ignore = [
+    # quick-xml 0.39.4 (transitive via Bevy) — DoS via duplicate attributes / namespace allocation
+    # Not exploitable: we don't parse untrusted XML
+    "RUSTSEC-2026-0194",
+    "RUSTSEC-2026-0195",
+]
