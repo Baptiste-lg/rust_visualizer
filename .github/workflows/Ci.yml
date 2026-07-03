@@ -86,8 +86,8 @@ jobs:
       - name: Run Tests
         run: cargo test --verbose
 
-  documentation:
-    name: Build & Deploy Docs
+  web-demo:
+    name: Build & Deploy Web Demo
     needs: quality
     if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/'))
     runs-on: ubuntu-latest
@@ -98,36 +98,30 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Install Linux Dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libasound2-dev libudev-dev pkg-config libx11-dev libxcursor-dev libxi-dev libxrandr-dev libwayland-dev libxkbcommon-dev
-
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
 
-      - name: Generate Documentation
-        run: cargo doc --no-deps --release
+      - name: Rust Cache
+        uses: swatinem/rust-cache@v2
 
-      - name: Prepare Documentation for GitHub Pages
-        run: |
-          # 1. Create the Smart Redirect
-          PROJECT_DOC_DIR=$(find target/doc -maxdepth 1 -type d -not -path 'target/doc' -exec test -e "{}/index.html" \; -print | head -n 1 | xargs basename)
-          echo "Detected documentation folder: $PROJECT_DOC_DIR"
-          echo "<meta http-equiv=\"refresh\" content=\"0; url=$PROJECT_DOC_DIR/index.html\">" > target/doc/index.html
-          
-          # --- FIX 2: Désactive Jekyll pour autoriser les fichiers commençant par "_" ---
-          touch target/doc/.nojekyll
-          # ----------------------------------------------------------------------------
+      - name: Install Trunk
+        uses: jetli/trunk-action@v0.5.0
+        with:
+          version: 'latest'
+
+      - name: Build WASM
+        run: trunk build --release --no-default-features --public-url /${{ github.event.repository.name }}/
 
       - name: Upload Pages Artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v5
         with:
-          path: target/doc
+          path: dist
 
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
 
   deploy:
     name: Deploy Release for ${{ matrix.os }}
