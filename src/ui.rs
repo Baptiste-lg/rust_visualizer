@@ -120,7 +120,7 @@ fn main_ui_layout(
                     ui.visuals_mut().widgets.noninteractive.bg_fill =
                         egui::Color32::from_black_alpha(150);
                     ui.visuals_mut().widgets.noninteractive.fg_stroke =
-                        egui::Stroke::new(1.0, egui::Color32::WHITE);
+                        egui::Stroke::new(1.0_f32, egui::Color32::WHITE);
                     egui::Frame::default().inner_margin(8.0).show(ui, |ui| {
                         ui.label(egui::RichText::new("Press 'H' to Show UI").size(16.0));
                     });
