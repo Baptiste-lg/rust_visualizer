@@ -1,8 +1,7 @@
 // src/ui.rs
 
 use crate::audio::{
-    AudioAnalysis, AudioSource, PlaybackInfo, PlaybackPosition, PlaybackStatus,
-    SelectedAudioSource,
+    AudioAnalysis, AudioSource, PlaybackInfo, PlaybackPosition, PlaybackStatus, SelectedAudioSource,
 };
 use crate::config::VisualsConfig;
 use crate::{in_any_visualization_state, ActiveVisualization, AppState, VisualizationEnabled};
@@ -13,9 +12,9 @@ use bevy_egui::{egui, EguiContexts, EguiSet};
 use std::time::Duration;
 
 #[cfg(not(target_arch = "wasm32"))]
-use cpal::traits::{DeviceTrait, HostTrait};
-#[cfg(not(target_arch = "wasm32"))]
 use crate::audio::SelectedMic;
+#[cfg(not(target_arch = "wasm32"))]
+use cpal::traits::{DeviceTrait, HostTrait};
 
 // A resource to know if the UI is shown or hidden
 #[derive(Resource)]
