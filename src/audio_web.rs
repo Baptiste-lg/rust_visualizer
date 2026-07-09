@@ -9,7 +9,6 @@ use crate::audio::{
     AudioInfo, AudioSamples, AudioSource, MicAudioBuffer, PlaybackInfo, PlaybackPosition,
     PlaybackStatus, SelectedAudioSource,
 };
-use crate::{in_any_visualization_state, VisualizationEnabled};
 use bevy::prelude::*;
 use std::path::PathBuf;
 use std::time::Duration;

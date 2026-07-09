@@ -2,7 +2,7 @@
 
 use crate::audio::{
     AudioAnalysis, AudioSource, PlaybackInfo, PlaybackPosition, PlaybackStatus,
-    SelectedAudioSource, SelectedMic,
+    SelectedAudioSource,
 };
 use crate::config::VisualsConfig;
 use crate::{in_any_visualization_state, ActiveVisualization, AppState, VisualizationEnabled};
@@ -14,6 +14,8 @@ use std::time::Duration;
 
 #[cfg(not(target_arch = "wasm32"))]
 use cpal::traits::{DeviceTrait, HostTrait};
+#[cfg(not(target_arch = "wasm32"))]
+use crate::audio::SelectedMic;
 
 // A resource to know if the UI is shown or hidden
 #[derive(Resource)]
