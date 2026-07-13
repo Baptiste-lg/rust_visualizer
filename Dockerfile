@@ -1,7 +1,7 @@
 # Stage 1: Builder
 # Using the official Rust image to compile the application.
 # Specific version pinning (1.83) ensures reproducible builds.
-FROM rust:1.85 AS builder
+FROM rust:latest AS builder
 
 # Install system libraries required for compilation (Audio, UI, Wayland support)
 RUN apt-get update && apt-get install -y \
