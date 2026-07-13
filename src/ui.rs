@@ -146,6 +146,16 @@ fn main_ui_layout(
             ui.add(egui::Slider::new(&mut config.bass_sensitivity, 0.1..=10.0));
 
             ui.separator();
+            ui.heading("🌌 Background");
+            ui.label("Color");
+            color_picker_widget(ui, &mut config.bg_color);
+            ui.checkbox(&mut config.bg_pulse_enabled, "Pulse with Bass");
+            if config.bg_pulse_enabled {
+                ui.label("Pulse Intensity");
+                ui.add(egui::Slider::new(&mut config.bg_pulse_intensity, 0.0..=1.0));
+            }
+
+            ui.separator();
 
             egui::ScrollArea::vertical().show(ui, |ui| match current_state {
                 AppState::Visualization2D => {
