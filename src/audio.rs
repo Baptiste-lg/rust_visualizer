@@ -274,6 +274,12 @@ pub struct AudioAnalysis {
     pub flux: f32,
     pub previous_spectrum: Vec<(f32, f32)>,
     spectrum_buffer: Vec<(f32, f32)>,
+
+    // Beat detection
+    pub beat_detected: bool,
+    pub bpm: f32,
+    flux_history: VecDeque<f32>,
+    beat_timestamps: VecDeque<f64>,
 }
 
 #[derive(Resource, Default)]
@@ -742,6 +748,56 @@ pub fn audio_analysis_system(
         .skip(three_quarters)
         .sum();
 
+    // --- Beat detection (adaptive threshold on flux) ---
     let audio = &mut *audio_analysis;
+
+    const FLUX_HISTORY_SIZE: usize = 60;
+    audio.flux_history.push_back(audio.flux);
+    if audio.flux_history.len() > FLUX_HISTORY_SIZE {
+        audio.flux_history.pop_front();
+    }
+
+    audio.beat_detected = false;
+    if audio.flux_history.len() >= 10 {
+        let avg_flux: f32 =
+            audio.flux_history.iter().sum::<f32>() / audio.flux_history.len() as f32;
+        let threshold = avg_flux * 1.8 + 0.01;
+
+        if audio.flux > threshold {
+            let elapsed = time.elapsed_seconds_f64();
+            let min_beat_interval = 0.2;
+            let last_beat_ok = audio
+                .beat_timestamps
+                .back()
+                .map_or(true, |&last| elapsed - last > min_beat_interval);
+
+            if last_beat_ok {
+                audio.beat_detected = true;
+                audio.beat_timestamps.push_back(elapsed);
+
+                const MAX_BEAT_HISTORY: usize = 32;
+                if audio.beat_timestamps.len() > MAX_BEAT_HISTORY {
+                    audio.beat_timestamps.pop_front();
+                }
+
+                // BPM from average interval between beats
+                if audio.beat_timestamps.len() >= 4 {
+                    let intervals: Vec<f64> = audio
+                        .beat_timestamps
+                        .iter()
+                        .zip(audio.beat_timestamps.iter().skip(1))
+                        .map(|(a, b)| b - a)
+                        .collect();
+                    let avg_interval =
+                        intervals.iter().sum::<f64>() / intervals.len() as f64;
+                    if avg_interval > 0.0 {
+                        let raw_bpm = (60.0 / avg_interval) as f32;
+                        audio.bpm = audio.bpm * 0.7 + raw_bpm * 0.3;
+                    }
+                }
+            }
+        }
+    }
+
     std::mem::swap(&mut audio.previous_spectrum, &mut audio.spectrum_buffer);
 }
