@@ -104,12 +104,33 @@ fn main_ui_layout(
     mut next_app_state: ResMut<NextState<AppState>>,
     mut active_viz: ResMut<ActiveVisualization>,
     q_windows: Query<Entity, With<PrimaryWindow>>,
+    mut beat_flash: Local<f32>,
 ) {
     if q_windows.get_single().is_err() {
         return;
     }
 
     let ctx = contexts.ctx_mut();
+
+    // Beat flash overlay
+    if audio_analysis.beat_detected {
+        *beat_flash = 0.4;
+    }
+    if *beat_flash > 0.0 {
+        let alpha = (*beat_flash * 255.0) as u8;
+        egui::Area::new("beat_flash_overlay".into())
+            .anchor(egui::Align2::LEFT_TOP, egui::vec2(0.0, 0.0))
+            .interactable(false)
+            .show(ctx, |ui| {
+                let screen = ui.ctx().screen_rect();
+                ui.painter().rect_filled(
+                    screen,
+                    0.0_f32,
+                    egui::Color32::from_white_alpha(alpha),
+                );
+            });
+        *beat_flash = (*beat_flash - time.delta_seconds() * 3.0).max(0.0);
+    }
 
     // 1. LOGIC WHEN UI IS HIDDEN
     if !ui_visibility.visible {
@@ -369,6 +390,24 @@ fn main_ui_layout(
                 ui.label(format!("Mid:    {:.2}", audio_analysis.mid));
                 ui.label(format!("Treble: {:.2}", audio_analysis.treble));
                 ui.label(format!("Flux:   {:.2}", audio_analysis.flux));
+                ui.separator();
+                let beat_indicator = if audio_analysis.beat_detected {
+                    "BEAT!"
+                } else {
+                    "----"
+                };
+                ui.label(
+                    egui::RichText::new(beat_indicator)
+                        .strong()
+                        .color(if audio_analysis.beat_detected {
+                            egui::Color32::YELLOW
+                        } else {
+                            egui::Color32::GRAY
+                        }),
+                );
+                if audio_analysis.bpm > 0.0 {
+                    ui.label(format!("BPM:    {:.0}", audio_analysis.bpm));
+                }
             }
 
             ui.add_space(20.0);
