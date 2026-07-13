@@ -14,7 +14,9 @@ mod viz_ico;
 mod viz_orb;
 
 // --- Plugin Imports ---
-use crate::audio::{AudioPlugin, PlaybackInfo, PlaybackPosition, SelectedAudioSource};
+use crate::audio::{
+    AudioAnalysis, AudioPlugin, PlaybackInfo, PlaybackPosition, SelectedAudioSource,
+};
 use crate::camera::CameraPlugin;
 use crate::config::VisualsConfig;
 use crate::ui::{UiPlugin, UiVisibility};
@@ -23,7 +25,6 @@ use crate::viz_3d::Viz3DPlugin;
 use crate::viz_disc::VizDiscPlugin;
 use crate::viz_ico::VizIcoPlugin;
 use crate::viz_orb::VizOrbPlugin;
-
 use bevy::prelude::*;
 use bevy_egui::EguiPlugin;
 
@@ -131,6 +132,7 @@ fn main() {
         .init_resource::<PlaybackPosition>()
         .init_resource::<UiVisibility>()
         .init_state::<AppState>()
+        .insert_resource(ClearColor(VisualsConfig::default().bg_color))
         .add_plugins((
             EguiPlugin,
             AudioPlugin,
@@ -142,5 +144,22 @@ fn main() {
             VizDiscPlugin,
             VizIcoPlugin,
         ))
+        .add_systems(Update, update_background_color.run_if(in_any_visualization_state))
         .run();
+}
+
+fn update_background_color(
+    config: Res<VisualsConfig>,
+    audio: Res<AudioAnalysis>,
+    mut clear_color: ResMut<ClearColor>,
+) {
+    if config.bg_pulse_enabled {
+        let pulse = audio.bass * config.bg_pulse_intensity;
+        let r = (config.bg_color.r() + pulse).min(1.0);
+        let g = (config.bg_color.g() + pulse).min(1.0);
+        let b = (config.bg_color.b() + pulse).min(1.0);
+        clear_color.0 = Color::rgb(r, g, b);
+    } else {
+        clear_color.0 = config.bg_color;
+    }
 }
