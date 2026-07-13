@@ -44,6 +44,11 @@ pub struct VisualsConfig {
     // --- Ico Visualizer Settings ---
     pub ico_speed: f32,
     pub ico_color: Color,
+
+    // --- Background Settings ---
+    pub bg_color: Color,
+    pub bg_pulse_enabled: bool,
+    pub bg_pulse_intensity: f32,
 }
 
 impl Default for VisualsConfig {
@@ -87,6 +92,11 @@ impl Default for VisualsConfig {
             // --- Ico Visualizer Defaults ---
             ico_speed: 0.5,
             ico_color: Color::rgb(0.5, 0.8, 0.9),
+
+            // --- Background Defaults ---
+            bg_color: Color::rgb(0.05, 0.05, 0.1),
+            bg_pulse_enabled: false,
+            bg_pulse_intensity: 0.3,
         }
     }
 }
