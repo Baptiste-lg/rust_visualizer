@@ -818,7 +818,7 @@ pub fn audio_analysis_system(
             let last_beat_ok = audio
                 .beat_timestamps
                 .back()
-                .map_or(true, |&last| elapsed - last > min_beat_interval);
+                .is_none_or(|&last| elapsed - last > min_beat_interval);
 
             if last_beat_ok {
                 audio.beat_detected = true;
