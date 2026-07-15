@@ -247,6 +247,14 @@ fn main_ui_layout(
                     ui.label("Rotation Speed");
                     ui.add(egui::Slider::new(&mut config.ico_speed, -3.0..=3.0));
                 }
+                AppState::VisualizationWaveform => {
+                    ui.label("Waveform Color");
+                    color_picker_widget(ui, &mut config.waveform_color);
+                    ui.label("Display Width");
+                    ui.add(egui::Slider::new(&mut config.waveform_width, 200.0..=1600.0));
+                    ui.label("Vertical Scale");
+                    ui.add(egui::Slider::new(&mut config.waveform_height, 50.0..=800.0));
+                }
                 AppState::MainMenu | AppState::MicSelection => {}
             });
         });
@@ -279,6 +287,47 @@ fn main_ui_layout(
                     *config = VisualsConfig::preset_monochrome();
                 }
             });
+            ui.horizontal(|ui| {
+                if ui.button("📤 Export").clicked() {
+                    if let Ok(json) = serde_json::to_string_pretty(&*config) {
+                        #[cfg(not(target_arch = "wasm32"))]
+                        {
+                            if let Some(path) = rfd::FileDialog::new()
+                                .set_file_name("visualizer_config.json")
+                                .add_filter("JSON", &["json"])
+                                .save_file()
+                            {
+                                if let Err(e) = std::fs::write(&path, &json) {
+                                    error!("Failed to save config: {e}");
+                                }
+                            }
+                        }
+                        #[cfg(target_arch = "wasm32")]
+                        {
+                            ui.output_mut(|o| o.copied_text = json);
+                        }
+                    }
+                }
+                if ui.button("📥 Import").clicked() {
+                    #[cfg(not(target_arch = "wasm32"))]
+                    {
+                        if let Some(path) = rfd::FileDialog::new()
+                            .add_filter("JSON", &["json"])
+                            .pick_file()
+                        {
+                            match std::fs::read_to_string(&path) {
+                                Ok(contents) => match serde_json::from_str::<VisualsConfig>(&contents) {
+                                    Ok(loaded) => *config = loaded,
+                                    Err(e) => error!("Invalid config file: {e}"),
+                                },
+                                Err(e) => error!("Failed to read config file: {e}"),
+                            }
+                        }
+                    }
+                }
+            });
+            #[cfg(target_arch = "wasm32")]
+            ui.label(egui::RichText::new("Export copies JSON to clipboard").weak().small());
 
             ui.separator();
 
@@ -319,6 +368,16 @@ fn main_ui_layout(
                 {
                     next_app_state.set(AppState::VisualizationIco);
                     active_viz.0 = AppState::VisualizationIco;
+                }
+                if ui
+                    .selectable_label(
+                        *current_state == AppState::VisualizationWaveform,
+                        "Waveform",
+                    )
+                    .clicked()
+                {
+                    next_app_state.set(AppState::VisualizationWaveform);
+                    active_viz.0 = AppState::VisualizationWaveform;
                 }
             });
 
