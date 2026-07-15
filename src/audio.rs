@@ -837,8 +837,7 @@ pub fn audio_analysis_system(
                         .zip(audio.beat_timestamps.iter().skip(1))
                         .map(|(a, b)| b - a)
                         .collect();
-                    let avg_interval =
-                        intervals.iter().sum::<f64>() / intervals.len() as f64;
+                    let avg_interval = intervals.iter().sum::<f64>() / intervals.len() as f64;
                     if avg_interval > 0.0 {
                         let raw_bpm = (60.0 / avg_interval) as f32;
                         audio.bpm = audio.bpm * 0.7 + raw_bpm * 0.3;
