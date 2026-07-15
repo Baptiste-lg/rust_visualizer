@@ -260,6 +260,28 @@ fn main_ui_layout(
             ui.heading("🎛 Controls");
             ui.separator();
 
+            // Presets
+            ui.label("Presets:");
+            ui.horizontal_wrapped(|ui| {
+                if ui.button("Default").clicked() {
+                    *config = VisualsConfig::default();
+                }
+                if ui.button("Chill").clicked() {
+                    *config = VisualsConfig::preset_chill();
+                }
+                if ui.button("Energetic").clicked() {
+                    *config = VisualsConfig::preset_energetic();
+                }
+                if ui.button("Neon").clicked() {
+                    *config = VisualsConfig::preset_neon();
+                }
+                if ui.button("Mono").clicked() {
+                    *config = VisualsConfig::preset_monochrome();
+                }
+            });
+
+            ui.separator();
+
             // Visualizer Choice
             ui.label("Select Visualizer:");
             ui.horizontal_wrapped(|ui| {
