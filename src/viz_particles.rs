@@ -49,14 +49,28 @@ fn despawn_particles(
     }
 }
 
+const MAX_PARTICLES: usize = 500;
+const SPAWN_COOLDOWN: f32 = 0.1;
+
 fn spawn_particles(
     mut commands: Commands,
     audio: Res<AudioAnalysis>,
     config: Res<VisualsConfig>,
+    time: Res<Time>,
+    mut cooldown: Local<f32>,
+    existing: Query<&Particle>,
 ) {
-    if !audio.beat_detected {
+    *cooldown = (*cooldown - time.delta_seconds()).max(0.0);
+
+    if !audio.beat_detected || *cooldown > 0.0 {
         return;
     }
+
+    if existing.iter().count() >= MAX_PARTICLES {
+        return;
+    }
+
+    *cooldown = SPAWN_COOLDOWN;
 
     let count = config.particles_count;
     let speed_base = (audio.bass * config.bass_sensitivity * 100.0).min(600.0);
