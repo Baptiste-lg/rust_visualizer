@@ -41,6 +41,9 @@ A real-time audio visualizer built with **Rust** and the **Bevy** game engine. I
 - **Beat Flash**: Visual flash overlay synchronized with detected beats
 - **FPS Counter**: Real-time performance monitoring
 - **Interactive Camera**: Pan-orbit for 3D scenes, zoom for 2D scenes
+- **Drag & Drop**: Drop audio files directly onto the window (native + WASM)
+- **Screenshot**: Capture the current visualization as PNG
+- **Smooth Transitions**: Fade effect when switching between visualization modes
 
 ### Keyboard Shortcuts
 
@@ -48,6 +51,7 @@ A real-time audio visualizer built with **Rust** and the **Bevy** game engine. I
 |-----|--------|
 | `H` | Toggle UI visibility |
 | `F` | Toggle fullscreen |
+| `P` | Take screenshot |
 | `1`-`7` | Switch visualization mode |
 
 ### Platform Support
