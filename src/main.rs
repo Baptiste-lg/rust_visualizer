@@ -182,10 +182,8 @@ fn main() {
             VizCircularPlugin,
             VizStarfieldPlugin,
             VizMatrixPlugin,
-            VizTerrainPlugin,
-            VizTunnelPlugin,
-            VizKaleidoscopePlugin,
         ))
+        .add_plugins((VizTerrainPlugin, VizTunnelPlugin, VizKaleidoscopePlugin))
         .add_systems(
             Update,
             (update_background_color, handle_file_drop).run_if(in_any_visualization_state),
