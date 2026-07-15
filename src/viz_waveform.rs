@@ -1,7 +1,7 @@
 // src/viz_waveform.rs
 
 use crate::{
-    audio::{AudioSamples, MicAudioBuffer, AudioSource, SelectedAudioSource},
+    audio::{AudioSamples, AudioSource, MicAudioBuffer, SelectedAudioSource},
     config::VisualsConfig,
     AppState, VisualizationEnabled,
 };
@@ -37,14 +37,20 @@ fn despawn_waveform(mut commands: Commands, query: Query<Entity, With<WaveformSc
 
 fn draw_waveform(
     mut gizmos: Gizmos,
-    audio_samples: Res<AudioSamples>,
-    mic_buffer: Res<MicAudioBuffer>,
+    mut audio_samples: ResMut<AudioSamples>,
+    mut mic_buffer: ResMut<MicAudioBuffer>,
     audio_source: Res<SelectedAudioSource>,
     config: Res<VisualsConfig>,
 ) {
     let samples: &[f32] = match &audio_source.0 {
-        AudioSource::File(_) => audio_samples.0.as_slices().0,
-        AudioSource::Microphone => mic_buffer.0.as_slices().0,
+        AudioSource::File(_) => {
+            audio_samples.0.make_contiguous();
+            audio_samples.0.as_slices().0
+        }
+        AudioSource::Microphone => {
+            mic_buffer.0.make_contiguous();
+            mic_buffer.0.as_slices().0
+        }
         AudioSource::None => return,
     };
 
@@ -57,11 +63,7 @@ fn draw_waveform(
     let height = config.waveform_height;
     let step = display_samples as f32 / width;
 
-    let color = Color::rgb(
-        config.waveform_color.r(),
-        config.waveform_color.g(),
-        config.waveform_color.b(),
-    );
+    let color = config.waveform_color;
 
     let mut prev = Vec2::new(
         -width / 2.0,
