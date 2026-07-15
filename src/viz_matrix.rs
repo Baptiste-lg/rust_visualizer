@@ -98,7 +98,7 @@ fn update_matrix(
                 }
             }
 
-            if rand_u64() % 20 == 0 {
+            if rand_u64().is_multiple_of(20) {
                 ch.char_idx = (rand_u64() % MATRIX_CHARS.len() as u64) as usize;
             }
         }
