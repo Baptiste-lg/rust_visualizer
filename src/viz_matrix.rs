@@ -2,8 +2,6 @@
 
 use crate::{audio::AudioAnalysis, config::VisualsConfig, AppState, VisualizationEnabled};
 use bevy::prelude::*;
-use std::collections::hash_map::DefaultHasher;
-use std::hash::{Hash, Hasher};
 use std::sync::atomic::{AtomicU64, Ordering};
 
 pub struct VizMatrixPlugin;
@@ -134,9 +132,23 @@ fn draw_matrix(mut gizmos: Gizmos, config: Res<VisualsConfig>, columns: Query<&M
 }
 
 fn rand_u64() -> u64 {
-    static COUNTER: AtomicU64 = AtomicU64::new(12345);
-    let val = COUNTER.fetch_add(1, Ordering::Relaxed);
-    let mut hasher = DefaultHasher::new();
-    val.hash(&mut hasher);
-    hasher.finish()
+    static STATE: AtomicU64 = AtomicU64::new(0);
+
+    let _ = STATE.compare_exchange(
+        0,
+        (std::time::SystemTime::UNIX_EPOCH
+            .elapsed()
+            .unwrap_or_default()
+            .as_nanos() as u64)
+            | 1,
+        Ordering::Relaxed,
+        Ordering::Relaxed,
+    );
+
+    let mut s = STATE.load(Ordering::Relaxed);
+    s ^= s << 13;
+    s ^= s >> 7;
+    s ^= s << 17;
+    STATE.store(s, Ordering::Relaxed);
+    s
 }
