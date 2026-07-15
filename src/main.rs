@@ -158,11 +158,7 @@ fn main() {
         ))
         .add_systems(
             Update,
-            (
-                update_background_color,
-                handle_file_drop,
-            )
-                .run_if(in_any_visualization_state),
+            (update_background_color, handle_file_drop).run_if(in_any_visualization_state),
         )
         .run();
 }
