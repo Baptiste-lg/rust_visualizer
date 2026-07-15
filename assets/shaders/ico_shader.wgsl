@@ -381,8 +381,11 @@ fn render_scene(res: vec2<f32>, ro: vec3<f32>, rd: vec3<f32>, basis: IcoBasis, t
 }
 
 fn calcLookAtMatrix(ro: vec3<f32>, ta: vec3<f32>, roll: f32) -> mat3x3<f32> {
-    let ww = normalize(ta - ro);
-    let uu = normalize(cross(ww, vec3<f32>(sin(roll), cos(roll), 0.0)));
+    let d = ta - ro;
+    let ww = select(vec3<f32>(0.0, 0.0, 1.0), normalize(d), length(d) > 0.0001);
+    let up = vec3<f32>(sin(roll), cos(roll), 0.0);
+    let c = cross(ww, up);
+    let uu = select(vec3<f32>(1.0, 0.0, 0.0), normalize(c), length(c) > 0.0001);
     let vv = normalize(cross(uu, ww));
     return mat3x3<f32>(uu, vv, ww);
 }

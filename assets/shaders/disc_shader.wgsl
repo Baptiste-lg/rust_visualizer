@@ -64,6 +64,10 @@ fn fragment(
 
     var final_frag: f32 = 0.0;
 
+    if (material.iterations < 1.0) {
+        return vec4<f32>(0.0, 0.0, 0.0, 1.0);
+    }
+
     // Loop to create multiple echoes/rings
     for (var i = 0.0; i < material.iterations; i = i + 1.0) {
         let divi = i / material.iterations * material.center_radius_factor;
