@@ -17,10 +17,7 @@ impl Plugin for VizCircularPlugin {
                     .run_if(in_state(AppState::VisualizationCircular))
                     .run_if(|viz_enabled: Res<VisualizationEnabled>| viz_enabled.0),
             )
-            .add_systems(
-                OnExit(AppState::VisualizationCircular),
-                despawn_circular,
-            );
+            .add_systems(OnExit(AppState::VisualizationCircular), despawn_circular);
     }
 }
 
