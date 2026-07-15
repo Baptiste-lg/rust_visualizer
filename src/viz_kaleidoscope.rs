@@ -122,10 +122,7 @@ fn update_kaleidoscope(
         window.resolution.physical_height() as f32,
     );
 
-    let zoom = q_camera
-        .get_single()
-        .map(|p| p.scale)
-        .unwrap_or(1.0);
+    let zoom = q_camera.get_single().map(|p| p.scale).unwrap_or(1.0);
 
     let sens = config.bass_sensitivity;
 
