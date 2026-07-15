@@ -57,11 +57,17 @@ impl Plugin for CameraPlugin {
             .add_systems(OnEnter(AppState::VisualizationIco), setup_2d_camera)
             .add_systems(OnEnter(AppState::VisualizationWaveform), setup_2d_camera)
             .add_systems(OnEnter(AppState::VisualizationParticles), setup_2d_camera)
+            .add_systems(OnEnter(AppState::VisualizationCircular), setup_2d_camera)
+            .add_systems(OnEnter(AppState::VisualizationStarfield), setup_2d_camera)
+            .add_systems(OnEnter(AppState::VisualizationMatrix), setup_2d_camera)
             .add_systems(OnExit(AppState::Visualization2D), despawn_2d_camera)
             .add_systems(OnExit(AppState::VisualizationDisc), despawn_2d_camera)
             .add_systems(OnExit(AppState::VisualizationIco), despawn_2d_camera)
             .add_systems(OnExit(AppState::VisualizationWaveform), despawn_2d_camera)
             .add_systems(OnExit(AppState::VisualizationParticles), despawn_2d_camera)
+            .add_systems(OnExit(AppState::VisualizationCircular), despawn_2d_camera)
+            .add_systems(OnExit(AppState::VisualizationStarfield), despawn_2d_camera)
+            .add_systems(OnExit(AppState::VisualizationMatrix), despawn_2d_camera)
             .add_systems(
                 Update,
                 control_2d_camera
@@ -70,7 +76,10 @@ impl Plugin for CameraPlugin {
                             .or_else(in_state(AppState::VisualizationDisc))
                             .or_else(in_state(AppState::VisualizationIco))
                             .or_else(in_state(AppState::VisualizationWaveform))
-                            .or_else(in_state(AppState::VisualizationParticles)),
+                            .or_else(in_state(AppState::VisualizationParticles))
+                            .or_else(in_state(AppState::VisualizationCircular))
+                            .or_else(in_state(AppState::VisualizationStarfield))
+                            .or_else(in_state(AppState::VisualizationMatrix)),
                     )
                     .after(EguiSet::InitContexts),
             );
