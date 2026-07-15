@@ -29,6 +29,7 @@ use crate::viz_ico::VizIcoPlugin;
 use crate::viz_orb::VizOrbPlugin;
 use crate::viz_particles::VizParticlesPlugin;
 use crate::viz_waveform::VizWaveformPlugin;
+use bevy::diagnostic::FrameTimeDiagnosticsPlugin;
 use bevy::prelude::*;
 use bevy_egui::EguiPlugin;
 
@@ -142,6 +143,7 @@ fn main() {
         .init_state::<AppState>()
         .insert_resource(ClearColor(VisualsConfig::default().bg_color))
         .add_plugins((
+            FrameTimeDiagnosticsPlugin,
             EguiPlugin,
             AudioPlugin,
             UiPlugin,
