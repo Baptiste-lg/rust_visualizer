@@ -177,8 +177,7 @@ fn update_terrain(
             let bin_count = audio.frequency_bins.len();
 
             for z in 0..=grid {
-                let bin_idx =
-                    ((z as f32 / grid as f32) * (bin_count - 1) as f32) as usize;
+                let bin_idx = ((z as f32 / grid as f32) * (bin_count - 1) as f32) as usize;
                 let amplitude =
                     audio.frequency_bins[bin_idx.min(bin_count - 1)] * config.bass_sensitivity;
 
