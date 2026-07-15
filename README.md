@@ -24,6 +24,9 @@ A real-time audio visualizer built with **Rust** and the **Bevy** game engine. I
 | **Ico** | Raymarched metallic icosahedron with procedural holes, spikes, and soft shadows |
 | **Waveform** | Real-time oscilloscope rendering of raw audio samples |
 | **Particles** | Beat-triggered particle explosions with gravity and fade-out |
+| **Circular** | Frequency spectrum arranged in a rotating circle with amplitude-driven bars |
+| **Starfield** | 3D star field with bass-reactive speed and treble-reactive color shifting |
+| **Matrix** | Falling ASCII-style rain columns with volume-reactive speed and density |
 
 ### Audio
 
@@ -52,7 +55,7 @@ A real-time audio visualizer built with **Rust** and the **Bevy** game engine. I
 | `H` | Toggle UI visibility |
 | `F` | Toggle fullscreen |
 | `P` | Take screenshot |
-| `1`-`7` | Switch visualization mode |
+| `1`-`0` | Switch visualization mode (10 modes) |
 
 ### Platform Support
 
