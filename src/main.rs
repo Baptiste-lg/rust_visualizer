@@ -17,7 +17,7 @@ mod viz_waveform;
 
 // --- Plugin Imports ---
 use crate::audio::{
-    AudioAnalysis, AudioPlugin, PlaybackInfo, PlaybackPosition, SelectedAudioSource,
+    AudioAnalysis, AudioPlugin, AudioSource, PlaybackInfo, PlaybackPosition, SelectedAudioSource,
 };
 use crate::camera::CameraPlugin;
 use crate::config::VisualsConfig;
@@ -158,7 +158,11 @@ fn main() {
         ))
         .add_systems(
             Update,
-            update_background_color.run_if(in_any_visualization_state),
+            (
+                update_background_color,
+                handle_file_drop,
+            )
+                .run_if(in_any_visualization_state),
         )
         .run();
 }
@@ -178,3 +182,23 @@ fn update_background_color(
         clear_color.0 = config.bg_color;
     }
 }
+
+#[cfg(not(target_arch = "wasm32"))]
+fn handle_file_drop(
+    mut events: EventReader<FileDragAndDrop>,
+    mut selected_source: ResMut<SelectedAudioSource>,
+) {
+    for event in events.read() {
+        if let FileDragAndDrop::DroppedFile { path_buf, .. } = event {
+            if let Some(ext) = path_buf.extension() {
+                let ext = ext.to_string_lossy().to_lowercase();
+                if ext == "mp3" || ext == "wav" || ext == "ogg" || ext == "flac" {
+                    selected_source.0 = AudioSource::File(path_buf.clone());
+                }
+            }
+        }
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+fn handle_file_drop() {}
