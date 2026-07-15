@@ -77,18 +77,17 @@ impl Plugin for UiPlugin {
         }
         app.add_systems(OnExit(AppState::MicSelection), cleanup_menu);
 
-        app.init_resource::<TransitionFade>()
-            .add_systems(
-                Update,
-                (
-                    toggle_ui_visibility,
-                    main_ui_layout,
-                    fps_overlay,
-                    render_transition_fade,
-                )
-                    .after(EguiSet::InitContexts)
-                    .run_if(in_any_visualization_state),
-            );
+        app.init_resource::<TransitionFade>().add_systems(
+            Update,
+            (
+                toggle_ui_visibility,
+                main_ui_layout,
+                fps_overlay,
+                render_transition_fade,
+            )
+                .after(EguiSet::InitContexts)
+                .run_if(in_any_visualization_state),
+        );
     }
 }
 
@@ -598,9 +597,11 @@ fn main_ui_layout(
             ui.separator();
             ui.vertical_centered(|ui| {
                 ui.label(
-                    egui::RichText::new("H: Hide UI | F: Fullscreen | P: Screenshot | 1-7: Switch Viz")
-                        .weak()
-                        .italics(),
+                    egui::RichText::new(
+                        "H: Hide UI | F: Fullscreen | P: Screenshot | 1-7: Switch Viz",
+                    )
+                    .weak()
+                    .italics(),
                 );
             });
         });
