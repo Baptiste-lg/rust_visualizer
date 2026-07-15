@@ -12,6 +12,7 @@ mod viz_3d;
 mod viz_disc;
 mod viz_ico;
 mod viz_orb;
+mod viz_particles;
 mod viz_waveform;
 
 // --- Plugin Imports ---
@@ -26,6 +27,7 @@ use crate::viz_3d::Viz3DPlugin;
 use crate::viz_disc::VizDiscPlugin;
 use crate::viz_ico::VizIcoPlugin;
 use crate::viz_orb::VizOrbPlugin;
+use crate::viz_particles::VizParticlesPlugin;
 use crate::viz_waveform::VizWaveformPlugin;
 use bevy::prelude::*;
 use bevy_egui::EguiPlugin;
@@ -46,6 +48,7 @@ pub enum AppState {
     VisualizationDisc,
     VisualizationIco,
     VisualizationWaveform,
+    VisualizationParticles,
 }
 
 impl AppState {
@@ -58,6 +61,7 @@ impl AppState {
                 | AppState::VisualizationDisc
                 | AppState::VisualizationIco
                 | AppState::VisualizationWaveform
+                | AppState::VisualizationParticles
         )
     }
 }
@@ -148,6 +152,7 @@ fn main() {
             VizDiscPlugin,
             VizIcoPlugin,
             VizWaveformPlugin,
+            VizParticlesPlugin,
         ))
         .add_systems(Update, update_background_color.run_if(in_any_visualization_state))
         .run();
