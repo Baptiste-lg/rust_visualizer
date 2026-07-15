@@ -2,71 +2,150 @@
 
 [![Rust Visualizer CI/CD](https://github.com/Baptiste-lg/Rust_visualizer/actions/workflows/Ci.yml/badge.svg)](https://github.com/Baptiste-lg/Rust_visualizer/actions/workflows/Ci.yml)
 [![Docker Build & Push](https://github.com/Baptiste-lg/Rust_visualizer/actions/workflows/Docker.yml/badge.svg)](https://github.com/Baptiste-lg/Rust_visualizer/actions/workflows/Docker.yml)
+[![Live Demo](https://img.shields.io/badge/demo-Live%20Demo-brightgreen)](https://Baptiste-lg.github.io/Rust_visualizer/)
 [![Documentation](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://Baptiste-lg.github.io/Rust_visualizer/)
 
-This project is a real-time audio visualizer built with Rust and the **Bevy** game engine. It transforms audio data from a file or a microphone into visual animations. With an interactive UI, you can switch between visualization modes and tweak parameters in real-time.
+A real-time audio visualizer built with **Rust** and the **Bevy** game engine. It transforms audio from a file or microphone into reactive visual animations. Runs natively on desktop and in the browser via WebAssembly.
+
+**[Try it live in your browser](https://Baptiste-lg.github.io/Rust_visualizer/)**
+
+---
 
 ## Features
 
--   **Multiple Visualization Modes**: Choose from several visual scenes:
-    -   **2D Bars**: A classic spectrum analyzer with vertical bars.
-    -   **3D Cubes**: A 3D grid of cubes whose height and emissive light react to audio frequencies.
-    -   **3D Orb**: A deformable sphere that ripples and pulses to the music using Perlin noise.
-    -   **2D Disc**: A shader-based visualization that reacts to bass and rhythmic changes.
--   **Real-Time Audio Analysis**: Uses a Fast Fourier Transform (FFT) to break down the audio signal into different frequency bands.
--   **Flexible Audio Sources**: Load audio files (MP3, WAV) or use your microphone input.
--   **Intuitive Control Interface**: A user interface, built with `bevy_egui`, allows you to:
-    -   Switch visualizers on the fly.
-    -   Adjust parameters like sensitivity, colors, and visual effects.
-    -   Control audio playback (play, pause, speed, seek).
--   **Interactive 3D Camera**: Explore the 3D scenes with pan-and-orbit camera controls.
+### Visualization Modes
 
-## DevOps and CI/CD Pipeline
+| Mode | Description |
+|------|-------------|
+| **2D Bars** | Classic frequency spectrum analyzer with color-interpolated vertical bars |
+| **3D Cubes** | 3D voxel grid with emissive glow, spread effect, and bloom |
+| **3D Orb** | Deformable sphere driven by Perlin noise and bass frequencies |
+| **Disc** | Shader-based concentric rings with animated sweep, bass-reactive radius |
+| **Ico** | Raymarched metallic icosahedron with procedural holes, spikes, and soft shadows |
+| **Waveform** | Real-time oscilloscope rendering of raw audio samples |
+| **Particles** | Beat-triggered particle explosions with gravity and fade-out |
 
-This project utilizes a robust CI/CD pipeline powered by **GitHub Actions**, demonstrating modern DevOps best practices:
+### Audio
 
--   **Automated Testing Matrix**: Builds and tests run concurrently on **Ubuntu, Windows, and macOS** to ensure cross-platform compatibility.
--   **Quality Gates**: Strict enforcement of `cargo fmt` and `cargo clippy`. The pipeline fails immediately if code standards are not met.
--   **Security Scanning**: Automated dependency auditing using `rust-audit` to detect vulnerabilities in the supply chain (DevSecOps).
--   **Smart Caching**: Implementation of `swatinem/rust-cache` to drastically reduce build times by caching Cargo registry and build artifacts.
--   **Documentation-as-Code**: Automatic generation and deployment of Rust documentation to **GitHub Pages** via OIDC authentication.
--   **Optimized Docker Builds**:
-    -   **Multi-stage build** to keep the final image lightweight.
-    -   Use of **Google Distroless** (Debian 12) base image for security (minimizing attack surface) and efficiency.
-    -   Automatic publishing to **GitHub Container Registry (GHCR)** upon successful CI completion.
+- **FFT Analysis**: 4096-sample FFT with Hann windowing, 20Hz-20kHz range
+- **Beat Detection**: Adaptive threshold on spectral flux with BPM estimation
+- **Frequency Bands**: Configurable logarithmic band splitting (bass/mid/treble)
+- **Audio Sources**: Load MP3/WAV files or capture microphone input
+- **Playback Controls**: Play, pause, seek, and speed adjustment (0.25x-2.0x)
 
-## How to Run
+### Interface
+
+- **Real-time UI** built with `bevy_egui` — tweak every parameter live
+- **Preset System**: Built-in presets (Chill, Energetic, Neon, Monochrome) + JSON export/import
+- **Dynamic Background**: Configurable color with optional bass-reactive pulse
+- **Beat Flash**: Visual flash overlay synchronized with detected beats
+- **FPS Counter**: Real-time performance monitoring
+- **Interactive Camera**: Pan-orbit for 3D scenes, zoom for 2D scenes
+
+### Keyboard Shortcuts
+
+| Key | Action |
+|-----|--------|
+| `H` | Toggle UI visibility |
+| `F` | Toggle fullscreen |
+| `1`-`7` | Switch visualization mode |
+
+### Platform Support
+
+| Platform | Audio | Rendering |
+|----------|-------|-----------|
+| **Linux** | ALSA/PulseAudio via cpal + rodio | Native GPU |
+| **Windows** | WASAPI via cpal + rodio | Native GPU |
+| **macOS** | CoreAudio via cpal + rodio | Native GPU |
+| **Web (WASM)** | Web Audio API + getUserMedia | WebGPU/WebGL |
+
+---
+
+## Getting Started
 
 ### Prerequisites
 
-Before you begin, make sure you have **Rust** and **Cargo** installed. If not, follow the instructions at [rustup.rs](https://rustup.rs/).
+- **Rust** toolchain — install from [rustup.rs](https://rustup.rs/)
+- System dependencies for **Bevy** — see the [Bevy Setup Guide](https://bevyengine.org/learn/book/getting-started/setup/)
 
-You will also need to install the system dependencies required for **Bevy** and the audio libraries. Please see the [Bevy Environment Setup Guide](https://bevyengine.org/learn/book/getting-started/setup/) for instructions specific to your operating system (Linux, macOS, Windows).
+### Run Natively
 
-### Launching the Project
+```bash
+git clone https://github.com/Baptiste-lg/Rust_visualizer.git
+cd Rust_visualizer
+cargo run --release
+```
 
-1.  **Clone the repository**:
-    ```bash
-    git clone [https://github.com/Baptiste-lg/Rust_visualizer.git](https://github.com/Baptiste-lg/Rust_visualizer.git)
-    cd Rust_visualizer
-    ```
+### Run in Browser (WASM)
 
-2.  **Compile and run the project** with Cargo:
-    ```bash
-    cargo run --release
-    ```
-    *The `--release` flag is recommended for optimal performance.*
+```bash
+# Install Trunk
+cargo install trunk
 
-### Using the Application
+# Serve locally
+trunk serve --release
+```
 
-Once the application launches, you will be greeted by the main menu:
+Then open `http://localhost:8080` in your browser.
 
-1.  **Main Menu**:
-    -   Click **"Start Visualization"** to launch the last active visualizer.
-    -   Click **"Select Microphone"** to choose an audio input device before starting.
+### Run with Docker
 
-2.  **Visualizer Interface**:
-    -   **"Controls" Window**: Adjust global settings like the number of frequency bands, sensitivity, and options specific to each visualizer.
-    -   **"Audio Source" Window**: Switch between microphone input and loading an audio file.
-    -   **"Visualizers" Window**: Change the visualization mode.
-    -   **"Playback Controls" Window** (if a file is loaded): Manage your music playback.
+```bash
+docker pull ghcr.io/baptiste-lg/rust_visualizer:latest
+docker run --rm ghcr.io/baptiste-lg/rust_visualizer:latest
+```
+
+---
+
+## Architecture
+
+```
+src/
+├── main.rs          # App state machine, plugin registration, background system
+├── audio.rs         # Native audio pipeline, FFT analysis, beat detection
+├── audio_web.rs     # WASM audio pipeline (Web Audio API via wasm-bindgen)
+├── config.rs        # VisualsConfig resource with serde serialization & presets
+├── camera.rs        # 3D pan-orbit camera, 2D zoom, bloom management
+├── ui.rs            # egui panels, preset selector, export/import, FPS overlay
+├── viz_2d.rs        # 2D frequency bar chart
+├── viz_3d.rs        # 3D cube grid with spread effect
+├── viz_orb.rs       # Perlin noise deformable sphere
+├── viz_disc.rs      # Disc shader material setup
+├── viz_ico.rs       # Ico raymarching material setup
+├── viz_waveform.rs  # Oscilloscope waveform renderer
+└── viz_particles.rs # Beat-triggered particle system
+
+assets/shaders/
+├── disc_shader.wgsl # Concentric ring fragment shader
+└── ico_shader.wgsl  # Raymarched icosahedron SDF shader
+```
+
+## Tech Stack
+
+| Component | Technology |
+|-----------|------------|
+| Engine | [Bevy](https://bevyengine.org/) 0.13 |
+| UI | [bevy_egui](https://github.com/mvlabat/bevy_egui) 0.27 |
+| FFT | [spectrum-analyzer](https://crates.io/crates/spectrum-analyzer) 1.7 |
+| Noise | [noise](https://crates.io/crates/noise) 0.8 |
+| Native Audio | [rodio](https://crates.io/crates/rodio) + [cpal](https://crates.io/crates/cpal) |
+| File Picker | [rfd](https://crates.io/crates/rfd) |
+| Serialization | [serde](https://serde.rs/) + serde_json |
+| WASM Bridge | [wasm-bindgen](https://rustwasm.github.io/wasm-bindgen/) |
+
+---
+
+## DevOps & CI/CD
+
+- **Cross-platform CI**: Automated builds on Ubuntu, Windows, and macOS
+- **Quality Gates**: `cargo fmt` and `cargo clippy` enforcement
+- **Security Scanning**: Dependency auditing with `rust-audit` (DevSecOps)
+- **Build Caching**: `swatinem/rust-cache` for fast incremental builds
+- **WASM Demo Deployment**: Automatic Trunk build and deploy to GitHub Pages
+- **Docker**: Multi-stage build with Google Distroless base image, published to GHCR
+
+---
+
+## License
+
+This project is open source. See the repository for license details.
