@@ -1,10 +1,6 @@
 // src/viz_particles.rs
 
-use crate::{
-    audio::AudioAnalysis,
-    config::VisualsConfig,
-    AppState, VisualizationEnabled,
-};
+use crate::{audio::AudioAnalysis, config::VisualsConfig, AppState, VisualizationEnabled};
 use bevy::prelude::*;
 
 pub struct VizParticlesPlugin;
@@ -76,8 +72,7 @@ fn spawn_particles(
     let speed_base = (audio.bass * config.bass_sensitivity * 100.0).min(600.0);
 
     for i in 0..count {
-        let angle = (i as f32 / count as f32) * std::f32::consts::TAU
-            + audio.treble * 0.5;
+        let angle = (i as f32 / count as f32) * std::f32::consts::TAU + audio.treble * 0.5;
         let speed = speed_base * (0.7 + 0.6 * ((i * 7) as f32 % 1.3));
         let velocity = Vec2::new(angle.cos() * speed, angle.sin() * speed);
 
