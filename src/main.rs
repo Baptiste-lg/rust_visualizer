@@ -12,10 +12,13 @@ mod viz_3d;
 mod viz_circular;
 mod viz_disc;
 mod viz_ico;
+mod viz_kaleidoscope;
 mod viz_matrix;
 mod viz_orb;
 mod viz_particles;
 mod viz_starfield;
+mod viz_terrain;
+mod viz_tunnel;
 mod viz_waveform;
 
 // --- Plugin Imports ---
@@ -30,10 +33,13 @@ use crate::viz_3d::Viz3DPlugin;
 use crate::viz_circular::VizCircularPlugin;
 use crate::viz_disc::VizDiscPlugin;
 use crate::viz_ico::VizIcoPlugin;
+use crate::viz_kaleidoscope::VizKaleidoscopePlugin;
 use crate::viz_matrix::VizMatrixPlugin;
 use crate::viz_orb::VizOrbPlugin;
 use crate::viz_particles::VizParticlesPlugin;
 use crate::viz_starfield::VizStarfieldPlugin;
+use crate::viz_terrain::VizTerrainPlugin;
+use crate::viz_tunnel::VizTunnelPlugin;
 use crate::viz_waveform::VizWaveformPlugin;
 use bevy::diagnostic::FrameTimeDiagnosticsPlugin;
 use bevy::prelude::*;
@@ -59,6 +65,9 @@ pub enum AppState {
     VisualizationCircular,
     VisualizationStarfield,
     VisualizationMatrix,
+    VisualizationTerrain,
+    VisualizationTunnel,
+    VisualizationKaleidoscope,
 }
 
 impl AppState {
@@ -75,6 +84,9 @@ impl AppState {
                 | AppState::VisualizationCircular
                 | AppState::VisualizationStarfield
                 | AppState::VisualizationMatrix
+                | AppState::VisualizationTerrain
+                | AppState::VisualizationTunnel
+                | AppState::VisualizationKaleidoscope
         )
     }
 }
@@ -170,6 +182,9 @@ fn main() {
             VizCircularPlugin,
             VizStarfieldPlugin,
             VizMatrixPlugin,
+            VizTerrainPlugin,
+            VizTunnelPlugin,
+            VizKaleidoscopePlugin,
         ))
         .add_systems(
             Update,
