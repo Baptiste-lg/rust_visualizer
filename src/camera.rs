@@ -64,7 +64,10 @@ impl Plugin for CameraPlugin {
             .add_systems(OnEnter(AppState::VisualizationStarfield), setup_2d_camera)
             .add_systems(OnEnter(AppState::VisualizationMatrix), setup_2d_camera)
             .add_systems(OnEnter(AppState::VisualizationTunnel), setup_2d_camera)
-            .add_systems(OnEnter(AppState::VisualizationKaleidoscope), setup_2d_camera)
+            .add_systems(
+                OnEnter(AppState::VisualizationKaleidoscope),
+                setup_2d_camera,
+            )
             .add_systems(OnExit(AppState::Visualization2D), despawn_2d_camera)
             .add_systems(OnExit(AppState::VisualizationDisc), despawn_2d_camera)
             .add_systems(OnExit(AppState::VisualizationIco), despawn_2d_camera)
@@ -74,7 +77,10 @@ impl Plugin for CameraPlugin {
             .add_systems(OnExit(AppState::VisualizationStarfield), despawn_2d_camera)
             .add_systems(OnExit(AppState::VisualizationMatrix), despawn_2d_camera)
             .add_systems(OnExit(AppState::VisualizationTunnel), despawn_2d_camera)
-            .add_systems(OnExit(AppState::VisualizationKaleidoscope), despawn_2d_camera)
+            .add_systems(
+                OnExit(AppState::VisualizationKaleidoscope),
+                despawn_2d_camera,
+            )
             .add_systems(
                 Update,
                 control_2d_camera
