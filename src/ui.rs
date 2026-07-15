@@ -142,6 +142,7 @@ fn toggle_ui_visibility(
 }
 
 // --- Main UI System (Layout & Content) ---
+#[allow(clippy::too_many_arguments)]
 fn main_ui_layout(
     mut contexts: EguiContexts,
     mut config: ResMut<VisualsConfig>,
