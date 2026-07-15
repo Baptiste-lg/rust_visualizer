@@ -116,10 +116,7 @@ fn update_tunnel(
         window.resolution.physical_height() as f32,
     );
 
-    let zoom = q_camera
-        .get_single()
-        .map(|p| p.scale)
-        .unwrap_or(1.0);
+    let zoom = q_camera.get_single().map(|p| p.scale).unwrap_or(1.0);
 
     for handle in &q_tunnel {
         if let Some(mat) = materials.get_mut(handle) {
