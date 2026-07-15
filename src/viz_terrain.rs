@@ -26,6 +26,8 @@ struct TerrainMesh {
 #[derive(Resource, Default)]
 struct TerrainState {
     last_grid_size: usize,
+    vertex_buffer: Vec<[f32; 3]>,
+    normal_buffer: Vec<[f32; 3]>,
 }
 
 impl Plugin for VizTerrainPlugin {
@@ -160,6 +162,7 @@ fn update_terrain(
     audio: Res<AudioAnalysis>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    mut state: ResMut<TerrainState>,
     query: Query<(&Handle<Mesh>, &Handle<StandardMaterial>, &TerrainMesh)>,
 ) {
     if audio.frequency_bins.is_empty() {
@@ -171,15 +174,21 @@ fn update_terrain(
     for (mesh_handle, mat_handle, terrain) in query.iter() {
         let grid = terrain.grid_size;
         let row_len = grid + 1;
+        let vert_count = row_len * row_len;
+
+        // Ensure cached buffers are the right size (no alloc if already sized)
+        state.vertex_buffer.resize(vert_count, [0.0; 3]);
+        state.normal_buffer.resize(vert_count, [0.0, 1.0, 0.0]);
 
         if let Some(mesh) = meshes.get_mut(mesh_handle) {
-            // Extract vertex data, modify heights, then write back with normals
             let Some(VertexAttributeValues::Float32x3(existing)) =
                 mesh.attribute(Mesh::ATTRIBUTE_POSITION)
             else {
                 continue;
             };
-            let mut vertex_data = existing.clone();
+
+            // Copy base positions into cached buffer (only x/z, we overwrite y)
+            state.vertex_buffer.copy_from_slice(existing);
 
             let bin_count = audio.frequency_bins.len();
 
@@ -190,23 +199,21 @@ fn update_terrain(
 
                 for x in 0..=grid {
                     let idx = z * row_len + x;
-                    if idx >= vertex_data.len() {
-                        break;
-                    }
-
                     let xf = x as f32 / grid as f32;
                     let zf = z as f32 / grid as f32;
 
                     let wave = (xf * 6.0 + t).sin() * 0.3 + (zf * 4.0 + t * 0.7).cos() * 0.2;
-                    let height = (amplitude + wave) * config.terrain_height_scale;
-
-                    vertex_data[idx][1] = height;
+                    state.vertex_buffer[idx][1] =
+                        (amplitude + wave) * config.terrain_height_scale;
                 }
             }
 
-            let normals = compute_normals(&vertex_data, grid);
-            mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, vertex_data);
-            mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
+            compute_normals_into(&state.vertex_buffer, grid, &mut state.normal_buffer);
+            mesh.insert_attribute(
+                Mesh::ATTRIBUTE_POSITION,
+                state.vertex_buffer.clone(),
+            );
+            mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, state.normal_buffer.clone());
         }
 
         if let Some(mat) = materials.get_mut(mat_handle) {
@@ -224,10 +231,11 @@ fn update_terrain(
     }
 }
 
-fn compute_normals(vertices: &[[f32; 3]], grid: usize) -> Vec<[f32; 3]> {
+fn compute_normals_into(vertices: &[[f32; 3]], grid: usize, normals: &mut Vec<[f32; 3]>) {
     let row_len = grid + 1;
     let vert_count = vertices.len();
-    let mut normals = vec![[0.0f32; 3]; vert_count];
+    normals.resize(vert_count, [0.0; 3]);
+    normals.fill([0.0; 3]);
 
     for z in 0..grid {
         for x in 0..grid {
@@ -272,7 +280,6 @@ fn compute_normals(vertices: &[[f32; 3]], grid: usize) -> Vec<[f32; 3]> {
         }
     }
 
-    normals
 }
 
 fn despawn_terrain(mut commands: Commands, query: Query<Entity, With<TerrainScene>>) {
