@@ -82,6 +82,12 @@ pub struct VisualsConfig {
     #[serde(with = "color_serde")]
     pub ico_color: Color,
 
+    // --- Waveform Visualizer Settings ---
+    #[serde(with = "color_serde")]
+    pub waveform_color: Color,
+    pub waveform_width: f32,
+    pub waveform_height: f32,
+
     // --- Background Settings ---
     #[serde(with = "color_serde")]
     pub bg_color: Color,
@@ -130,6 +136,11 @@ impl Default for VisualsConfig {
             // --- Ico Visualizer Defaults ---
             ico_speed: 0.5,
             ico_color: Color::rgb(0.5, 0.8, 0.9),
+
+            // --- Waveform Defaults ---
+            waveform_color: Color::rgb(0.2, 0.8, 1.0),
+            waveform_width: 800.0,
+            waveform_height: 200.0,
 
             // --- Background Defaults ---
             bg_color: Color::rgb(0.05, 0.05, 0.1),
