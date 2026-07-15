@@ -121,6 +121,39 @@ export function wa_get_pending_file() {
     window.__rv_pending_file = null;
     return f;
 }
+
+export function wa_screenshot() {
+    const canvas = document.getElementById('bevy-canvas') || document.querySelector('canvas');
+    if (!canvas) return;
+    canvas.toBlob((blob) => {
+        if (!blob) return;
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'visualizer_screenshot.png';
+        a.click();
+        URL.revokeObjectURL(url);
+    }, 'image/png');
+}
+
+export function wa_setup_drag_drop() {
+    const canvas = document.getElementById('bevy-canvas') || document.querySelector('canvas');
+    if (!canvas || canvas.__rv_drop_setup) return;
+    canvas.__rv_drop_setup = true;
+    canvas.addEventListener('dragover', (e) => { e.preventDefault(); });
+    canvas.addEventListener('drop', (e) => {
+        e.preventDefault();
+        if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) {
+            const file = e.dataTransfer.files[0];
+            if (file.type.startsWith('audio/')) {
+                const url = URL.createObjectURL(file);
+                currentBlobUrl = url;
+                wa_load_file_url(url);
+                window.__rv_pending_file = file.name;
+            }
+        }
+    });
+}
 "#)]
 extern "C" {
     fn wa_start_mic();
@@ -135,6 +168,8 @@ extern "C" {
     fn wa_set_paused(paused: bool);
     fn wa_trigger_file_input();
     fn wa_get_pending_file() -> JsValue;
+    fn wa_setup_drag_drop();
+    fn wa_screenshot();
 }
 
 // ---------------------------------------------------------------------------
@@ -147,6 +182,14 @@ pub fn request_file() {
 
 pub fn request_microphone() {
     wa_start_mic();
+}
+
+pub fn setup_drag_drop() {
+    wa_setup_drag_drop();
+}
+
+pub fn trigger_screenshot() {
+    wa_screenshot();
 }
 
 // ---------------------------------------------------------------------------
