@@ -119,6 +119,29 @@ pub struct VisualsConfig {
     pub matrix_speed: f32,
     pub matrix_density: f32,
 
+    // --- Terrain 3D Settings ---
+    #[serde(with = "color_serde")]
+    pub terrain_low_color: Color,
+    #[serde(with = "color_serde")]
+    pub terrain_high_color: Color,
+    pub terrain_grid_size: usize,
+    pub terrain_height_scale: f32,
+    pub terrain_wave_speed: f32,
+
+    // --- Tunnel Settings ---
+    #[serde(with = "color_serde")]
+    pub tunnel_color: Color,
+    pub tunnel_speed: f32,
+    pub tunnel_ring_count: f32,
+    pub tunnel_twist: f32,
+
+    // --- Kaleidoscope Settings ---
+    #[serde(with = "color_serde")]
+    pub kaleidoscope_color: Color,
+    pub kaleidoscope_segments: f32,
+    pub kaleidoscope_speed: f32,
+    pub kaleidoscope_zoom: f32,
+
     // --- Background Settings ---
     #[serde(with = "color_serde")]
     pub bg_color: Color,
@@ -198,6 +221,25 @@ impl Default for VisualsConfig {
             matrix_columns: 40,
             matrix_speed: 200.0,
             matrix_density: 0.5,
+
+            // --- Terrain 3D Defaults ---
+            terrain_low_color: Color::rgb(0.05, 0.1, 0.3),
+            terrain_high_color: Color::rgb(0.2, 0.8, 1.0),
+            terrain_grid_size: 32,
+            terrain_height_scale: 3.0,
+            terrain_wave_speed: 1.0,
+
+            // --- Tunnel Defaults ---
+            tunnel_color: Color::rgb(0.0, 0.8, 1.0),
+            tunnel_speed: 1.5,
+            tunnel_ring_count: 20.0,
+            tunnel_twist: 0.5,
+
+            // --- Kaleidoscope Defaults ---
+            kaleidoscope_color: Color::rgb(1.0, 0.5, 0.8),
+            kaleidoscope_segments: 6.0,
+            kaleidoscope_speed: 1.0,
+            kaleidoscope_zoom: 2.0,
 
             // --- Background Defaults ---
             bg_color: Color::rgb(0.05, 0.05, 0.1),
