@@ -12,8 +12,6 @@ use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 #[cfg(not(target_arch = "wasm32"))]
 use rodio::{source::Source, Decoder, Sink};
 #[cfg(not(target_arch = "wasm32"))]
-use std::io::Cursor;
-#[cfg(not(target_arch = "wasm32"))]
 use std::path::Path;
 #[cfg(not(target_arch = "wasm32"))]
 use std::sync::mpsc::{Receiver, Sender};
@@ -50,6 +48,57 @@ fn get_duration_with_symphonia(path: &Path) -> Result<Duration, Box<dyn std::err
     let total_time = time_base.calc_time(n_frames);
 
     Ok(Duration::from_secs(total_time.seconds) + Duration::from_secs_f64(total_time.frac))
+}
+
+// ---------------------------------------------------------------------------
+// Native-only: ArcCursor (zero-copy Read+Seek over Arc<Vec<u8>>)
+// ---------------------------------------------------------------------------
+
+#[cfg(not(target_arch = "wasm32"))]
+struct ArcCursor {
+    data: Arc<Vec<u8>>,
+    pos: u64,
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+impl ArcCursor {
+    fn new(data: Arc<Vec<u8>>) -> Self {
+        Self { data, pos: 0 }
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+impl std::io::Read for ArcCursor {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        let start = self.pos as usize;
+        if start >= self.data.len() {
+            return Ok(0);
+        }
+        let end = (start + buf.len()).min(self.data.len());
+        let n = end - start;
+        buf[..n].copy_from_slice(&self.data[start..end]);
+        self.pos += n as u64;
+        Ok(n)
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+impl std::io::Seek for ArcCursor {
+    fn seek(&mut self, style: std::io::SeekFrom) -> std::io::Result<u64> {
+        let new_pos = match style {
+            std::io::SeekFrom::Start(n) => n as i64,
+            std::io::SeekFrom::End(n) => self.data.len() as i64 + n,
+            std::io::SeekFrom::Current(n) => self.pos as i64 + n,
+        };
+        if new_pos < 0 {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "seek before start",
+            ));
+        }
+        self.pos = new_pos as u64;
+        Ok(self.pos)
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -305,6 +354,7 @@ impl Default for HannCoefficients {
 pub(crate) struct CachedBandLimits {
     num_bands: usize,
     limits: Vec<f32>,
+    bins: Vec<f32>,
 }
 
 // ---------------------------------------------------------------------------
@@ -360,8 +410,7 @@ pub fn manage_audio_playback(
                     return;
                 }
             };
-            let cursor = Cursor::new((*file_bytes).clone());
-            let source = match Decoder::new(cursor) {
+            let source = match Decoder::new(ArcCursor::new(file_bytes.clone())) {
                 Ok(s) => s,
                 Err(e) => {
                     error!("Failed to decode audio file: {e}");
@@ -502,8 +551,7 @@ fn apply_playback_changes(
                 error!("No cached file bytes available for seeking");
                 return;
             };
-            let cursor = Cursor::new((**file_bytes).clone());
-            let source = match Decoder::new(cursor) {
+            let source = match Decoder::new(ArcCursor::new(file_bytes.clone())) {
                 Ok(s) => s,
                 Err(e) => {
                     error!("Failed to decode audio for seeking: {e}");
@@ -701,10 +749,11 @@ pub fn audio_analysis_system(
         cached_band_limits.limits = (0..num_bands)
             .map(|i| min_freq * (max_freq / min_freq).powf((i as f32 + 1.0) / num_bands as f32))
             .collect();
+        cached_band_limits.bins.resize(num_bands, 0.0);
         cached_band_limits.num_bands = num_bands;
     }
 
-    let mut new_bins = vec![0.0; num_bands];
+    cached_band_limits.bins.fill(0.0);
     let mut current_band = 0;
     let mut treble_val = 0.0;
 
@@ -712,7 +761,7 @@ pub fn audio_analysis_system(
         if current_band < num_bands - 1 && freq.val() > cached_band_limits.limits[current_band] {
             current_band += 1;
         }
-        new_bins[current_band] += val.val();
+        cached_band_limits.bins[current_band] += val.val();
 
         if freq.val() > 4000.0 {
             treble_val += val.val();
@@ -724,7 +773,7 @@ pub fn audio_analysis_system(
         audio_analysis.frequency_bins.resize(num_bands, 0.0);
     }
 
-    for (i, bin_val) in new_bins.iter().take(num_bands).enumerate() {
+    for (i, bin_val) in cached_band_limits.bins.iter().take(num_bands).enumerate() {
         audio_analysis.frequency_bins[i] =
             audio_analysis.frequency_bins[i] * smoothing + bin_val * (1.0 - smoothing);
     }
