@@ -6,8 +6,24 @@ use crate::audio::{
 use crate::config::VisualsConfig;
 use crate::{in_any_visualization_state, ActiveVisualization, AppState, VisualizationEnabled};
 use bevy::diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin};
+use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
+
+#[derive(SystemParam)]
+struct PlaybackParams<'w> {
+    selected_source: ResMut<'w, SelectedAudioSource>,
+    playback_info: ResMut<'w, PlaybackInfo>,
+    playback_pos: ResMut<'w, PlaybackPosition>,
+}
+
+#[derive(SystemParam)]
+struct VizStateParams<'w> {
+    viz_enabled: ResMut<'w, VisualizationEnabled>,
+    app_state: Res<'w, State<AppState>>,
+    next_app_state: ResMut<'w, NextState<AppState>>,
+    active_viz: ResMut<'w, ActiveVisualization>,
+}
 use bevy_egui::egui::color_picker;
 use bevy_egui::{egui, EguiContexts, EguiSet};
 use std::time::Duration;
@@ -126,20 +142,14 @@ fn toggle_ui_visibility(
 }
 
 // --- Main UI System (Layout & Content) ---
-#[allow(clippy::too_many_arguments)]
 fn main_ui_layout(
     mut contexts: EguiContexts,
     mut config: ResMut<VisualsConfig>,
-    mut selected_source: ResMut<SelectedAudioSource>,
-    mut viz_enabled: ResMut<VisualizationEnabled>,
-    mut playback_info: ResMut<PlaybackInfo>,
-    playback_pos: ResMut<PlaybackPosition>,
+    mut playback: PlaybackParams,
+    mut viz_state: VizStateParams,
     mut ui_visibility: ResMut<UiVisibility>,
     time: Res<Time>,
     audio_analysis: Res<AudioAnalysis>,
-    app_state: Res<State<AppState>>,
-    mut next_app_state: ResMut<NextState<AppState>>,
-    mut active_viz: ResMut<ActiveVisualization>,
     q_windows: Query<Entity, With<PrimaryWindow>>,
     mut beat_flash: Local<f32>,
 ) {
@@ -189,7 +199,7 @@ fn main_ui_layout(
     }
 
     // 2. LOGIC WHEN UI IS VISIBLE (Panels)
-    let current_state = app_state.get();
+    let current_state = viz_state.app_state.get();
 
     // --- LEFT PANEL: Active Visualizer Settings ---
     egui::SidePanel::left("viz_settings_panel")
@@ -387,36 +397,36 @@ fn main_ui_layout(
                     .selectable_label(*current_state == AppState::Visualization2D, "2D Bars")
                     .clicked()
                 {
-                    next_app_state.set(AppState::Visualization2D);
-                    active_viz.0 = AppState::Visualization2D;
+                    viz_state.next_app_state.set(AppState::Visualization2D);
+                    viz_state.active_viz.0 =AppState::Visualization2D;
                 }
                 if ui
                     .selectable_label(*current_state == AppState::Visualization3D, "3D Cubes")
                     .clicked()
                 {
-                    next_app_state.set(AppState::Visualization3D);
-                    active_viz.0 = AppState::Visualization3D;
+                    viz_state.next_app_state.set(AppState::Visualization3D);
+                    viz_state.active_viz.0 =AppState::Visualization3D;
                 }
                 if ui
                     .selectable_label(*current_state == AppState::VisualizationOrb, "3D Orb")
                     .clicked()
                 {
-                    next_app_state.set(AppState::VisualizationOrb);
-                    active_viz.0 = AppState::VisualizationOrb;
+                    viz_state.next_app_state.set(AppState::VisualizationOrb);
+                    viz_state.active_viz.0 =AppState::VisualizationOrb;
                 }
                 if ui
                     .selectable_label(*current_state == AppState::VisualizationDisc, "Disc")
                     .clicked()
                 {
-                    next_app_state.set(AppState::VisualizationDisc);
-                    active_viz.0 = AppState::VisualizationDisc;
+                    viz_state.next_app_state.set(AppState::VisualizationDisc);
+                    viz_state.active_viz.0 =AppState::VisualizationDisc;
                 }
                 if ui
                     .selectable_label(*current_state == AppState::VisualizationIco, "Ico")
                     .clicked()
                 {
-                    next_app_state.set(AppState::VisualizationIco);
-                    active_viz.0 = AppState::VisualizationIco;
+                    viz_state.next_app_state.set(AppState::VisualizationIco);
+                    viz_state.active_viz.0 =AppState::VisualizationIco;
                 }
                 if ui
                     .selectable_label(
@@ -425,8 +435,8 @@ fn main_ui_layout(
                     )
                     .clicked()
                 {
-                    next_app_state.set(AppState::VisualizationWaveform);
-                    active_viz.0 = AppState::VisualizationWaveform;
+                    viz_state.next_app_state.set(AppState::VisualizationWaveform);
+                    viz_state.active_viz.0 =AppState::VisualizationWaveform;
                 }
                 if ui
                     .selectable_label(
@@ -435,21 +445,21 @@ fn main_ui_layout(
                     )
                     .clicked()
                 {
-                    next_app_state.set(AppState::VisualizationParticles);
-                    active_viz.0 = AppState::VisualizationParticles;
+                    viz_state.next_app_state.set(AppState::VisualizationParticles);
+                    viz_state.active_viz.0 =AppState::VisualizationParticles;
                 }
             });
 
             ui.separator();
 
             // Global Toggle On/Off
-            let btn_text = if viz_enabled.0 {
+            let btn_text = if viz_state.viz_enabled.0 {
                 "⏹ Stop Render"
             } else {
                 "▶ Start Render"
             };
             if ui.button(btn_text).clicked() {
-                viz_enabled.0 = !viz_enabled.0;
+                viz_state.viz_enabled.0 = !viz_state.viz_enabled.0;
             }
 
             ui.separator();
@@ -460,7 +470,7 @@ fn main_ui_layout(
                 #[cfg(target_arch = "wasm32")]
                 crate::audio_web::request_microphone();
 
-                selected_source.0 = AudioSource::Microphone;
+                playback.selected_source.0 = AudioSource::Microphone;
             }
 
             // --- File picker button ---
@@ -471,7 +481,7 @@ fn main_ui_layout(
                         .add_filter("audio", &["mp3", "wav"])
                         .pick_file()
                     {
-                        selected_source.0 = AudioSource::File(path);
+                        playback.selected_source.0 = AudioSource::File(path);
                     }
                 }
 
@@ -480,30 +490,30 @@ fn main_ui_layout(
             }
 
             // Playback Controls (If file)
-            if let AudioSource::File(_) = selected_source.0 {
+            if let AudioSource::File(_) = playback.selected_source.0 {
                 ui.separator();
                 ui.label("Playback:");
                 ui.horizontal(|ui| {
-                    let icon = if playback_info.status == PlaybackStatus::Playing {
+                    let icon = if playback.playback_info.status == PlaybackStatus::Playing {
                         "⏸"
                     } else {
                         "▶"
                     };
                     if ui.button(icon).clicked() {
-                        playback_info.status = match playback_info.status {
+                        playback.playback_info.status = match playback.playback_info.status {
                             PlaybackStatus::Playing => PlaybackStatus::Paused,
                             PlaybackStatus::Paused => PlaybackStatus::Playing,
                         };
                     }
 
                     ui.label("Speed:");
-                    ui.add(egui::Slider::new(&mut playback_info.speed, 0.25..=2.0).text("x"));
+                    ui.add(egui::Slider::new(&mut playback.playback_info.speed, 0.25..=2.0).text("x"));
                 });
 
                 // Progress Bar
-                if playback_info.duration > Duration::ZERO {
-                    let total = playback_info.duration.as_secs_f32();
-                    let mut pos = playback_pos.position.as_secs_f32();
+                if playback.playback_info.duration > Duration::ZERO {
+                    let total = playback.playback_info.duration.as_secs_f32();
+                    let mut pos = playback.playback_pos.position.as_secs_f32();
                     let label = format!("{:.0}s / {:.0}s", pos, total);
                     if ui
                         .add(
@@ -513,7 +523,7 @@ fn main_ui_layout(
                         )
                         .changed()
                     {
-                        playback_info.seek_to = Some(pos);
+                        playback.playback_info.seek_to = Some(pos);
                     }
                 }
             }
