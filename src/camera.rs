@@ -133,6 +133,9 @@ fn update_bloom_settings(
     mut camera_query: Query<(Entity, Option<&mut BloomSettings>), With<MainCamera3D>>,
     mut commands: Commands,
 ) {
+    if !config.is_changed() {
+        return;
+    }
     if let Ok((camera_entity, bloom_settings)) = camera_query.get_single_mut() {
         if config.bloom_enabled {
             match bloom_settings {

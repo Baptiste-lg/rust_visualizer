@@ -171,7 +171,7 @@ fn update_background_color(
         let g = (config.bg_color.g() + pulse).min(1.0);
         let b = (config.bg_color.b() + pulse).min(1.0);
         clear_color.0 = Color::rgb(r, g, b);
-    } else {
+    } else if config.is_changed() {
         clear_color.0 = config.bg_color;
     }
 }
