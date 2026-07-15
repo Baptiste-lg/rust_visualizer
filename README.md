@@ -27,6 +27,9 @@ A real-time audio visualizer built with **Rust** and the **Bevy** game engine. I
 | **Circular** | Frequency spectrum arranged in a rotating circle with amplitude-driven bars |
 | **Starfield** | 3D star field with bass-reactive speed and treble-reactive color shifting |
 | **Matrix** | Falling ASCII-style rain columns with volume-reactive speed and density |
+| **Terrain** | 3D mesh grid with frequency-driven vertex heights, wave animation, and bloom |
+| **Tunnel** | Shader-based infinite tunnel with ring patterns, twist, and audio-reactive depth |
+| **Kaleidoscope** | Mirrored fractal patterns with voronoi cells, flow fields, and radial waves |
 
 ### Audio
 
