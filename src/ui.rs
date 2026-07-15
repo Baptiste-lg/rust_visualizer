@@ -348,7 +348,10 @@ fn main_ui_layout(
                     ui.label("Radius");
                     ui.add(egui::Slider::new(&mut config.circular_radius, 50.0..=400.0));
                     ui.label("Bar Width");
-                    ui.add(egui::Slider::new(&mut config.circular_bar_width, 1.0..=10.0));
+                    ui.add(egui::Slider::new(
+                        &mut config.circular_bar_width,
+                        1.0..=10.0,
+                    ));
                     ui.label("Rotation Speed");
                     ui.add(egui::Slider::new(
                         &mut config.circular_rotation_speed,
@@ -547,15 +550,10 @@ fn main_ui_layout(
                     viz_state.active_viz.0 = AppState::VisualizationStarfield;
                 }
                 if ui
-                    .selectable_label(
-                        *current_state == AppState::VisualizationMatrix,
-                        "Matrix",
-                    )
+                    .selectable_label(*current_state == AppState::VisualizationMatrix, "Matrix")
                     .clicked()
                 {
-                    viz_state
-                        .next_app_state
-                        .set(AppState::VisualizationMatrix);
+                    viz_state.next_app_state.set(AppState::VisualizationMatrix);
                     viz_state.active_viz.0 = AppState::VisualizationMatrix;
                 }
             });
