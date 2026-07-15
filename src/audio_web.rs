@@ -25,6 +25,7 @@ let audioEl = null;
 let mediaElSource = null;
 let micStream = null;
 let micSource = null;
+let currentBlobUrl = null;
 
 function ensureCtx() {
     if (!ctx) {
@@ -44,6 +45,7 @@ function stopMic() {
 function stopFile() {
     if (audioEl)        { audioEl.pause(); audioEl.src = ''; audioEl = null; }
     if (mediaElSource)  { try { mediaElSource.disconnect(); } catch(_){} mediaElSource = null; }
+    if (currentBlobUrl) { URL.revokeObjectURL(currentBlobUrl); currentBlobUrl = null; }
 }
 
 export function wa_load_file_url(url) {
@@ -103,6 +105,7 @@ export function wa_trigger_file_input() {
             if (input.files && input.files[0]) {
                 const file = input.files[0];
                 const url = URL.createObjectURL(file);
+                currentBlobUrl = url;
                 wa_load_file_url(url);
                 window.__rv_pending_file = file.name;
             }
