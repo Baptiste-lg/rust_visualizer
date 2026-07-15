@@ -65,10 +65,7 @@ fn draw_waveform(
 
     let color = config.waveform_color;
 
-    let mut prev = Vec2::new(
-        -width / 2.0,
-        samples[0] * height * config.bass_sensitivity,
-    );
+    let mut prev = Vec2::new(-width / 2.0, samples[0] * height * config.bass_sensitivity);
 
     for i in 1..(width as usize) {
         let sample_idx = (i as f32 * step) as usize;
