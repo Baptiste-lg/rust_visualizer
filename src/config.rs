@@ -97,6 +97,28 @@ pub struct VisualsConfig {
     pub particles_gravity: f32,
     pub particles_lifetime: f32,
 
+    // --- Circular Spectrum Settings ---
+    #[serde(with = "color_serde")]
+    pub circular_color: Color,
+    pub circular_bar_count: usize,
+    pub circular_radius: f32,
+    pub circular_bar_width: f32,
+    pub circular_rotation_speed: f32,
+
+    // --- Starfield Settings ---
+    #[serde(with = "color_serde")]
+    pub starfield_color: Color,
+    pub starfield_count: usize,
+    pub starfield_speed: f32,
+    pub starfield_spread: f32,
+
+    // --- Matrix Rain Settings ---
+    #[serde(with = "color_serde")]
+    pub matrix_color: Color,
+    pub matrix_columns: usize,
+    pub matrix_speed: f32,
+    pub matrix_density: f32,
+
     // --- Background Settings ---
     #[serde(with = "color_serde")]
     pub bg_color: Color,
@@ -157,6 +179,25 @@ impl Default for VisualsConfig {
             particles_size: 3.0,
             particles_gravity: -200.0,
             particles_lifetime: 2.0,
+
+            // --- Circular Spectrum Defaults ---
+            circular_color: Color::rgb(0.3, 0.8, 1.0),
+            circular_bar_count: 64,
+            circular_radius: 150.0,
+            circular_bar_width: 3.0,
+            circular_rotation_speed: 0.2,
+
+            // --- Starfield Defaults ---
+            starfield_color: Color::rgb(1.0, 1.0, 1.0),
+            starfield_count: 200,
+            starfield_speed: 100.0,
+            starfield_spread: 600.0,
+
+            // --- Matrix Rain Defaults ---
+            matrix_color: Color::rgb(0.0, 1.0, 0.3),
+            matrix_columns: 40,
+            matrix_speed: 200.0,
+            matrix_density: 0.5,
 
             // --- Background Defaults ---
             bg_color: Color::rgb(0.05, 0.05, 0.1),
