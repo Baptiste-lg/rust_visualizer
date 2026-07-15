@@ -170,11 +170,8 @@ fn main_ui_layout(
             .interactable(false)
             .show(ctx, |ui| {
                 let screen = ui.ctx().screen_rect();
-                ui.painter().rect_filled(
-                    screen,
-                    0.0_f32,
-                    egui::Color32::from_white_alpha(alpha),
-                );
+                ui.painter()
+                    .rect_filled(screen, 0.0_f32, egui::Color32::from_white_alpha(alpha));
             });
         *beat_flash = (*beat_flash - time.delta_seconds() * 3.0).max(0.0);
     }
@@ -298,7 +295,10 @@ fn main_ui_layout(
                     ui.label("Waveform Color");
                     color_picker_widget(ui, &mut config.waveform_color);
                     ui.label("Display Width");
-                    ui.add(egui::Slider::new(&mut config.waveform_width, 200.0..=1600.0));
+                    ui.add(egui::Slider::new(
+                        &mut config.waveform_width,
+                        200.0..=1600.0,
+                    ));
                     ui.label("Vertical Scale");
                     ui.add(egui::Slider::new(&mut config.waveform_height, 50.0..=800.0));
                 }
@@ -310,7 +310,10 @@ fn main_ui_layout(
                     ui.label("Particle Size");
                     ui.add(egui::Slider::new(&mut config.particles_size, 1.0..=20.0));
                     ui.label("Gravity");
-                    ui.add(egui::Slider::new(&mut config.particles_gravity, -500.0..=0.0));
+                    ui.add(egui::Slider::new(
+                        &mut config.particles_gravity,
+                        -500.0..=0.0,
+                    ));
                     ui.label("Lifetime (s)");
                     ui.add(egui::Slider::new(&mut config.particles_lifetime, 0.5..=5.0));
                 }
@@ -375,10 +378,12 @@ fn main_ui_layout(
                             .pick_file()
                         {
                             match std::fs::read_to_string(&path) {
-                                Ok(contents) => match serde_json::from_str::<VisualsConfig>(&contents) {
-                                    Ok(loaded) => *config = loaded,
-                                    Err(e) => error!("Invalid config file: {e}"),
-                                },
+                                Ok(contents) => {
+                                    match serde_json::from_str::<VisualsConfig>(&contents) {
+                                        Ok(loaded) => *config = loaded,
+                                        Err(e) => error!("Invalid config file: {e}"),
+                                    }
+                                }
                                 Err(e) => error!("Failed to read config file: {e}"),
                             }
                         }
@@ -386,7 +391,11 @@ fn main_ui_layout(
                 }
             });
             #[cfg(target_arch = "wasm32")]
-            ui.label(egui::RichText::new("Export copies JSON to clipboard").weak().small());
+            ui.label(
+                egui::RichText::new("Export copies JSON to clipboard")
+                    .weak()
+                    .small(),
+            );
 
             ui.separator();
 
@@ -398,35 +407,35 @@ fn main_ui_layout(
                     .clicked()
                 {
                     viz_state.next_app_state.set(AppState::Visualization2D);
-                    viz_state.active_viz.0 =AppState::Visualization2D;
+                    viz_state.active_viz.0 = AppState::Visualization2D;
                 }
                 if ui
                     .selectable_label(*current_state == AppState::Visualization3D, "3D Cubes")
                     .clicked()
                 {
                     viz_state.next_app_state.set(AppState::Visualization3D);
-                    viz_state.active_viz.0 =AppState::Visualization3D;
+                    viz_state.active_viz.0 = AppState::Visualization3D;
                 }
                 if ui
                     .selectable_label(*current_state == AppState::VisualizationOrb, "3D Orb")
                     .clicked()
                 {
                     viz_state.next_app_state.set(AppState::VisualizationOrb);
-                    viz_state.active_viz.0 =AppState::VisualizationOrb;
+                    viz_state.active_viz.0 = AppState::VisualizationOrb;
                 }
                 if ui
                     .selectable_label(*current_state == AppState::VisualizationDisc, "Disc")
                     .clicked()
                 {
                     viz_state.next_app_state.set(AppState::VisualizationDisc);
-                    viz_state.active_viz.0 =AppState::VisualizationDisc;
+                    viz_state.active_viz.0 = AppState::VisualizationDisc;
                 }
                 if ui
                     .selectable_label(*current_state == AppState::VisualizationIco, "Ico")
                     .clicked()
                 {
                     viz_state.next_app_state.set(AppState::VisualizationIco);
-                    viz_state.active_viz.0 =AppState::VisualizationIco;
+                    viz_state.active_viz.0 = AppState::VisualizationIco;
                 }
                 if ui
                     .selectable_label(
@@ -435,8 +444,10 @@ fn main_ui_layout(
                     )
                     .clicked()
                 {
-                    viz_state.next_app_state.set(AppState::VisualizationWaveform);
-                    viz_state.active_viz.0 =AppState::VisualizationWaveform;
+                    viz_state
+                        .next_app_state
+                        .set(AppState::VisualizationWaveform);
+                    viz_state.active_viz.0 = AppState::VisualizationWaveform;
                 }
                 if ui
                     .selectable_label(
@@ -445,8 +456,10 @@ fn main_ui_layout(
                     )
                     .clicked()
                 {
-                    viz_state.next_app_state.set(AppState::VisualizationParticles);
-                    viz_state.active_viz.0 =AppState::VisualizationParticles;
+                    viz_state
+                        .next_app_state
+                        .set(AppState::VisualizationParticles);
+                    viz_state.active_viz.0 = AppState::VisualizationParticles;
                 }
             });
 
@@ -507,7 +520,9 @@ fn main_ui_layout(
                     }
 
                     ui.label("Speed:");
-                    ui.add(egui::Slider::new(&mut playback.playback_info.speed, 0.25..=2.0).text("x"));
+                    ui.add(
+                        egui::Slider::new(&mut playback.playback_info.speed, 0.25..=2.0).text("x"),
+                    );
                 });
 
                 // Progress Bar
@@ -546,15 +561,13 @@ fn main_ui_layout(
                 } else {
                     "----"
                 };
-                ui.label(
-                    egui::RichText::new(beat_indicator)
-                        .strong()
-                        .color(if audio_analysis.beat_detected {
-                            egui::Color32::YELLOW
-                        } else {
-                            egui::Color32::GRAY
-                        }),
-                );
+                ui.label(egui::RichText::new(beat_indicator).strong().color(
+                    if audio_analysis.beat_detected {
+                        egui::Color32::YELLOW
+                    } else {
+                        egui::Color32::GRAY
+                    },
+                ));
                 if audio_analysis.bpm > 0.0 {
                     ui.label(format!("BPM:    {:.0}", audio_analysis.bpm));
                 }
@@ -563,7 +576,11 @@ fn main_ui_layout(
             ui.add_space(20.0);
             ui.separator();
             ui.vertical_centered(|ui| {
-                ui.label(egui::RichText::new("H: Hide UI | F: Fullscreen | 1-7: Switch Viz").weak().italics());
+                ui.label(
+                    egui::RichText::new("H: Hide UI | F: Fullscreen | 1-7: Switch Viz")
+                        .weak()
+                        .italics(),
+                );
             });
         });
 }
