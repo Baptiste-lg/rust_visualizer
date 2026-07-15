@@ -34,6 +34,7 @@ mod color_serde {
 // A resource that holds all the configurable parameters for the visualizations.
 // This allows users to tweak the visuals in real-time through the UI.
 #[derive(Resource, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct VisualsConfig {
     // --- General Settings ---
     pub bass_sensitivity: f32,
