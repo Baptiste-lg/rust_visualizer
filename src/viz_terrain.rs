@@ -7,7 +7,10 @@
 use crate::{audio::AudioAnalysis, config::VisualsConfig, AppState, VisualizationEnabled};
 use bevy::{
     prelude::*,
-    render::mesh::{Indices, Mesh, PrimitiveTopology, VertexAttributeValues},
+    render::{
+        mesh::{Indices, Mesh, PrimitiveTopology, VertexAttributeValues},
+        render_asset::RenderAssetUsages,
+    },
 };
 
 pub struct VizTerrainPlugin;
@@ -70,11 +73,14 @@ fn build_terrain_mesh(grid_size: usize) -> Mesh {
         }
     }
 
-    let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
+    let mut mesh = Mesh::new(
+        PrimitiveTopology::TriangleList,
+        RenderAssetUsages::default(),
+    );
     mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
     mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
     mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
-    mesh.set_indices(Some(Indices::U32(indices)));
+    mesh.insert_indices(Indices::U32(indices));
     mesh
 }
 
@@ -167,12 +173,13 @@ fn update_terrain(
         let row_len = grid + 1;
 
         if let Some(mesh) = meshes.get_mut(mesh_handle) {
-            let Some(positions) = mesh.attribute_mut(Mesh::ATTRIBUTE_POSITION) else {
+            // Extract vertex data, modify heights, then write back with normals
+            let Some(VertexAttributeValues::Float32x3(existing)) =
+                mesh.attribute(Mesh::ATTRIBUTE_POSITION)
+            else {
                 continue;
             };
-            let VertexAttributeValues::Float32x3(vertex_data) = positions else {
-                continue;
-            };
+            let mut vertex_data = existing.clone();
 
             let bin_count = audio.frequency_bins.len();
 
@@ -197,7 +204,9 @@ fn update_terrain(
                 }
             }
 
-            recompute_normals(vertex_data, grid, mesh);
+            let normals = compute_normals(&vertex_data, grid);
+            mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, vertex_data);
+            mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
         }
 
         if let Some(mat) = materials.get_mut(mat_handle) {
@@ -215,7 +224,7 @@ fn update_terrain(
     }
 }
 
-fn recompute_normals(vertices: &[[f32; 3]], grid: usize, mesh: &mut Mesh) {
+fn compute_normals(vertices: &[[f32; 3]], grid: usize) -> Vec<[f32; 3]> {
     let row_len = grid + 1;
     let vert_count = vertices.len();
     let mut normals = vec![[0.0f32; 3]; vert_count];
@@ -263,7 +272,7 @@ fn recompute_normals(vertices: &[[f32; 3]], grid: usize, mesh: &mut Mesh) {
         }
     }
 
-    mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
+    normals
 }
 
 fn despawn_terrain(mut commands: Commands, query: Query<Entity, With<TerrainScene>>) {
