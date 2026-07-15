@@ -40,14 +40,17 @@ impl Plugin for CameraPlugin {
             // Systems for the 3D camera
             .add_systems(OnEnter(AppState::Visualization3D), setup_3d_camera)
             .add_systems(OnEnter(AppState::VisualizationOrb), setup_3d_camera)
+            .add_systems(OnEnter(AppState::VisualizationTerrain), setup_3d_camera)
             .add_systems(OnExit(AppState::Visualization3D), despawn_3d_camera)
             .add_systems(OnExit(AppState::VisualizationOrb), despawn_3d_camera)
+            .add_systems(OnExit(AppState::VisualizationTerrain), despawn_3d_camera)
             .add_systems(
                 Update,
                 (pan_orbit_camera, update_bloom_settings)
                     .run_if(
                         in_state(AppState::Visualization3D)
-                            .or_else(in_state(AppState::VisualizationOrb)),
+                            .or_else(in_state(AppState::VisualizationOrb))
+                            .or_else(in_state(AppState::VisualizationTerrain)),
                     )
                     .after(EguiSet::InitContexts),
             )
@@ -60,6 +63,8 @@ impl Plugin for CameraPlugin {
             .add_systems(OnEnter(AppState::VisualizationCircular), setup_2d_camera)
             .add_systems(OnEnter(AppState::VisualizationStarfield), setup_2d_camera)
             .add_systems(OnEnter(AppState::VisualizationMatrix), setup_2d_camera)
+            .add_systems(OnEnter(AppState::VisualizationTunnel), setup_2d_camera)
+            .add_systems(OnEnter(AppState::VisualizationKaleidoscope), setup_2d_camera)
             .add_systems(OnExit(AppState::Visualization2D), despawn_2d_camera)
             .add_systems(OnExit(AppState::VisualizationDisc), despawn_2d_camera)
             .add_systems(OnExit(AppState::VisualizationIco), despawn_2d_camera)
@@ -68,6 +73,8 @@ impl Plugin for CameraPlugin {
             .add_systems(OnExit(AppState::VisualizationCircular), despawn_2d_camera)
             .add_systems(OnExit(AppState::VisualizationStarfield), despawn_2d_camera)
             .add_systems(OnExit(AppState::VisualizationMatrix), despawn_2d_camera)
+            .add_systems(OnExit(AppState::VisualizationTunnel), despawn_2d_camera)
+            .add_systems(OnExit(AppState::VisualizationKaleidoscope), despawn_2d_camera)
             .add_systems(
                 Update,
                 control_2d_camera
@@ -79,7 +86,9 @@ impl Plugin for CameraPlugin {
                             .or_else(in_state(AppState::VisualizationParticles))
                             .or_else(in_state(AppState::VisualizationCircular))
                             .or_else(in_state(AppState::VisualizationStarfield))
-                            .or_else(in_state(AppState::VisualizationMatrix)),
+                            .or_else(in_state(AppState::VisualizationMatrix))
+                            .or_else(in_state(AppState::VisualizationTunnel))
+                            .or_else(in_state(AppState::VisualizationKaleidoscope)),
                     )
                     .after(EguiSet::InitContexts),
             );
