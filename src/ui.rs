@@ -23,7 +23,6 @@ struct VizStateParams<'w> {
     app_state: Res<'w, State<AppState>>,
     next_app_state: ResMut<'w, NextState<AppState>>,
     active_viz: ResMut<'w, ActiveVisualization>,
-    fade: ResMut<'w, TransitionFade>,
 }
 use bevy_egui::egui::color_picker;
 use bevy_egui::{egui, EguiContexts, EguiSet};
@@ -381,6 +380,58 @@ fn main_ui_layout(
                     ui.label("Density");
                     ui.add(egui::Slider::new(&mut config.matrix_density, 0.1..=1.0));
                 }
+                AppState::VisualizationTerrain => {
+                    ui.label("Low Color");
+                    color_picker_widget(ui, &mut config.terrain_low_color);
+                    ui.label("High Color");
+                    color_picker_widget(ui, &mut config.terrain_high_color);
+                    ui.label("Grid Size (rebuilds)");
+                    ui.add(egui::Slider::new(&mut config.terrain_grid_size, 8..=128));
+                    ui.label("Height Scale");
+                    ui.add(egui::Slider::new(
+                        &mut config.terrain_height_scale,
+                        0.5..=10.0,
+                    ));
+                    ui.label("Wave Speed");
+                    ui.add(egui::Slider::new(
+                        &mut config.terrain_wave_speed,
+                        0.1..=5.0,
+                    ));
+                    ui.separator();
+                    render_bloom_ui(ui, &mut config);
+                }
+                AppState::VisualizationTunnel => {
+                    ui.label("Color");
+                    color_picker_widget(ui, &mut config.tunnel_color);
+                    ui.label("Speed");
+                    ui.add(egui::Slider::new(&mut config.tunnel_speed, 0.1..=5.0));
+                    ui.label("Ring Count");
+                    ui.add(egui::Slider::new(
+                        &mut config.tunnel_ring_count,
+                        2.0..=50.0,
+                    ));
+                    ui.label("Twist");
+                    ui.add(egui::Slider::new(&mut config.tunnel_twist, 0.0..=3.0));
+                }
+                AppState::VisualizationKaleidoscope => {
+                    ui.label("Color");
+                    color_picker_widget(ui, &mut config.kaleidoscope_color);
+                    ui.label("Segments");
+                    ui.add(egui::Slider::new(
+                        &mut config.kaleidoscope_segments,
+                        2.0..=16.0,
+                    ));
+                    ui.label("Speed");
+                    ui.add(egui::Slider::new(
+                        &mut config.kaleidoscope_speed,
+                        0.1..=5.0,
+                    ));
+                    ui.label("Pattern Zoom");
+                    ui.add(egui::Slider::new(
+                        &mut config.kaleidoscope_zoom,
+                        0.5..=8.0,
+                    ));
+                }
                 AppState::MainMenu | AppState::MicSelection => {}
             });
         });
@@ -555,6 +606,42 @@ fn main_ui_layout(
                 {
                     viz_state.next_app_state.set(AppState::VisualizationMatrix);
                     viz_state.active_viz.0 = AppState::VisualizationMatrix;
+                }
+                if ui
+                    .selectable_label(
+                        *current_state == AppState::VisualizationTerrain,
+                        "Terrain",
+                    )
+                    .clicked()
+                {
+                    viz_state
+                        .next_app_state
+                        .set(AppState::VisualizationTerrain);
+                    viz_state.active_viz.0 = AppState::VisualizationTerrain;
+                }
+                if ui
+                    .selectable_label(
+                        *current_state == AppState::VisualizationTunnel,
+                        "Tunnel",
+                    )
+                    .clicked()
+                {
+                    viz_state
+                        .next_app_state
+                        .set(AppState::VisualizationTunnel);
+                    viz_state.active_viz.0 = AppState::VisualizationTunnel;
+                }
+                if ui
+                    .selectable_label(
+                        *current_state == AppState::VisualizationKaleidoscope,
+                        "Kaleidoscope",
+                    )
+                    .clicked()
+                {
+                    viz_state
+                        .next_app_state
+                        .set(AppState::VisualizationKaleidoscope);
+                    viz_state.active_viz.0 = AppState::VisualizationKaleidoscope;
                 }
             });
 
