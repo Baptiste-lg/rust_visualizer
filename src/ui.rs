@@ -23,6 +23,7 @@ struct VizStateParams<'w> {
     app_state: Res<'w, State<AppState>>,
     next_app_state: ResMut<'w, NextState<AppState>>,
     active_viz: ResMut<'w, ActiveVisualization>,
+    fade: ResMut<'w, TransitionFade>,
 }
 use bevy_egui::egui::color_picker;
 use bevy_egui::{egui, EguiContexts, EguiSet};
@@ -38,6 +39,11 @@ use cpal::traits::{DeviceTrait, HostTrait};
 pub struct UiVisibility {
     pub visible: bool,
     pub hint_timer: Timer,
+}
+
+#[derive(Resource, Default)]
+pub struct TransitionFade {
+    pub alpha: f32,
 }
 
 impl Default for UiVisibility {
@@ -71,12 +77,18 @@ impl Plugin for UiPlugin {
         }
         app.add_systems(OnExit(AppState::MicSelection), cleanup_menu);
 
-        app.add_systems(
-            Update,
-            (toggle_ui_visibility, main_ui_layout, fps_overlay)
-                .after(EguiSet::InitContexts)
-                .run_if(in_any_visualization_state),
-        );
+        app.init_resource::<TransitionFade>()
+            .add_systems(
+                Update,
+                (
+                    toggle_ui_visibility,
+                    main_ui_layout,
+                    fps_overlay,
+                    render_transition_fade,
+                )
+                    .after(EguiSet::InitContexts)
+                    .run_if(in_any_visualization_state),
+            );
     }
 }
 
@@ -102,12 +114,19 @@ fn toggle_ui_visibility(
     mut next_app_state: ResMut<NextState<AppState>>,
     mut active_viz: ResMut<ActiveVisualization>,
     mut windows: Query<&mut Window, With<PrimaryWindow>>,
+    mut fade: ResMut<TransitionFade>,
 ) {
     if keyboard.just_pressed(KeyCode::KeyH) {
         ui_viz.visible = !ui_viz.visible;
         if !ui_viz.visible {
             ui_viz.hint_timer.reset();
         }
+    }
+
+    // Screenshot
+    #[cfg(target_arch = "wasm32")]
+    if keyboard.just_pressed(KeyCode::KeyP) {
+        crate::audio_web::trigger_screenshot();
     }
 
     // Fullscreen toggle
@@ -134,6 +153,7 @@ fn toggle_ui_visibility(
     ];
     for (key, state) in mappings {
         if keyboard.just_pressed(key) {
+            fade.alpha = 1.0;
             next_app_state.set(state.clone());
             active_viz.0 = state;
             break;
@@ -578,7 +598,7 @@ fn main_ui_layout(
             ui.separator();
             ui.vertical_centered(|ui| {
                 ui.label(
-                    egui::RichText::new("H: Hide UI | F: Fullscreen | 1-7: Switch Viz")
+                    egui::RichText::new("H: Hide UI | F: Fullscreen | P: Screenshot | 1-7: Switch Viz")
                         .weak()
                         .italics(),
                 );
@@ -805,4 +825,37 @@ fn fps_overlay(mut contexts: EguiContexts, diagnostics: Res<DiagnosticsStore>) {
                     .small(),
             );
         });
+}
+
+fn render_transition_fade(
+    mut contexts: EguiContexts,
+    mut fade: ResMut<TransitionFade>,
+    time: Res<Time>,
+    app_state: Res<State<AppState>>,
+    mut last_state: Local<Option<AppState>>,
+) {
+    let current = app_state.get().clone();
+    if last_state.as_ref() != Some(&current) {
+        if last_state.is_some() {
+            fade.alpha = 1.0;
+        }
+        *last_state = Some(current);
+    }
+
+    if fade.alpha <= 0.0 {
+        return;
+    }
+
+    let alpha = (fade.alpha * 255.0) as u8;
+    let ctx = contexts.ctx_mut();
+    egui::Area::new("transition_fade".into())
+        .anchor(egui::Align2::LEFT_TOP, egui::vec2(0.0, 0.0))
+        .order(egui::Order::Foreground)
+        .interactable(false)
+        .show(ctx, |ui| {
+            let screen = ui.ctx().screen_rect();
+            ui.painter()
+                .rect_filled(screen, 0.0_f32, egui::Color32::from_black_alpha(alpha));
+        });
+    fade.alpha = (fade.alpha - time.delta_seconds() * 3.0).max(0.0);
 }
