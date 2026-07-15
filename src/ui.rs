@@ -149,6 +149,9 @@ fn toggle_ui_visibility(
         (KeyCode::Digit5, AppState::VisualizationIco),
         (KeyCode::Digit6, AppState::VisualizationWaveform),
         (KeyCode::Digit7, AppState::VisualizationParticles),
+        (KeyCode::Digit8, AppState::VisualizationCircular),
+        (KeyCode::Digit9, AppState::VisualizationStarfield),
+        (KeyCode::Digit0, AppState::VisualizationMatrix),
     ];
     for (key, state) in mappings {
         if keyboard.just_pressed(key) {
@@ -337,6 +340,44 @@ fn main_ui_layout(
                     ui.label("Lifetime (s)");
                     ui.add(egui::Slider::new(&mut config.particles_lifetime, 0.5..=5.0));
                 }
+                AppState::VisualizationCircular => {
+                    ui.label("Color");
+                    color_picker_widget(ui, &mut config.circular_color);
+                    ui.label("Bar Count");
+                    ui.add(egui::Slider::new(&mut config.circular_bar_count, 8..=128));
+                    ui.label("Radius");
+                    ui.add(egui::Slider::new(&mut config.circular_radius, 50.0..=400.0));
+                    ui.label("Bar Width");
+                    ui.add(egui::Slider::new(&mut config.circular_bar_width, 1.0..=10.0));
+                    ui.label("Rotation Speed");
+                    ui.add(egui::Slider::new(
+                        &mut config.circular_rotation_speed,
+                        -2.0..=2.0,
+                    ));
+                }
+                AppState::VisualizationStarfield => {
+                    ui.label("Star Color");
+                    color_picker_widget(ui, &mut config.starfield_color);
+                    ui.label("Star Count (restart to apply)");
+                    ui.add(egui::Slider::new(&mut config.starfield_count, 50..=500));
+                    ui.label("Speed");
+                    ui.add(egui::Slider::new(&mut config.starfield_speed, 10.0..=500.0));
+                    ui.label("Spread");
+                    ui.add(egui::Slider::new(
+                        &mut config.starfield_spread,
+                        200.0..=1200.0,
+                    ));
+                }
+                AppState::VisualizationMatrix => {
+                    ui.label("Color");
+                    color_picker_widget(ui, &mut config.matrix_color);
+                    ui.label("Columns (restart to apply)");
+                    ui.add(egui::Slider::new(&mut config.matrix_columns, 10..=80));
+                    ui.label("Fall Speed");
+                    ui.add(egui::Slider::new(&mut config.matrix_speed, 50.0..=500.0));
+                    ui.label("Density");
+                    ui.add(egui::Slider::new(&mut config.matrix_density, 0.1..=1.0));
+                }
                 AppState::MainMenu | AppState::MicSelection => {}
             });
         });
@@ -481,6 +522,42 @@ fn main_ui_layout(
                         .set(AppState::VisualizationParticles);
                     viz_state.active_viz.0 = AppState::VisualizationParticles;
                 }
+                if ui
+                    .selectable_label(
+                        *current_state == AppState::VisualizationCircular,
+                        "Circular",
+                    )
+                    .clicked()
+                {
+                    viz_state
+                        .next_app_state
+                        .set(AppState::VisualizationCircular);
+                    viz_state.active_viz.0 = AppState::VisualizationCircular;
+                }
+                if ui
+                    .selectable_label(
+                        *current_state == AppState::VisualizationStarfield,
+                        "Starfield",
+                    )
+                    .clicked()
+                {
+                    viz_state
+                        .next_app_state
+                        .set(AppState::VisualizationStarfield);
+                    viz_state.active_viz.0 = AppState::VisualizationStarfield;
+                }
+                if ui
+                    .selectable_label(
+                        *current_state == AppState::VisualizationMatrix,
+                        "Matrix",
+                    )
+                    .clicked()
+                {
+                    viz_state
+                        .next_app_state
+                        .set(AppState::VisualizationMatrix);
+                    viz_state.active_viz.0 = AppState::VisualizationMatrix;
+                }
             });
 
             ui.separator();
@@ -598,7 +675,7 @@ fn main_ui_layout(
             ui.vertical_centered(|ui| {
                 ui.label(
                     egui::RichText::new(
-                        "H: Hide UI | F: Fullscreen | P: Screenshot | 1-7: Switch Viz",
+                        "H: Hide UI | F: Fullscreen | P: Screenshot | 1-0: Switch Viz",
                     )
                     .weak()
                     .italics(),
