@@ -61,10 +61,10 @@ fn draw_circular(
         );
 
         let t = (amplitude * 2.0).clamp(0.0, 1.0);
-        let r = config.circular_color.r() + t * (1.0 - config.circular_color.r());
-        let g = config.circular_color.g() * (1.0 - t * 0.5);
-        let b = config.circular_color.b() * (1.0 - t);
-        let color = Color::rgb(r.min(1.0), g.max(0.0), b.max(0.0));
+        let r = (config.circular_color.r() + t * (1.0 - config.circular_color.r())).clamp(0.0, 1.0);
+        let g = (config.circular_color.g() * (1.0 - t * 0.5)).clamp(0.0, 1.0);
+        let b = (config.circular_color.b() * (1.0 - t)).clamp(0.0, 1.0);
+        let color = Color::rgb(r, g, b);
 
         gizmos.line_2d(inner, outer, color);
     }
