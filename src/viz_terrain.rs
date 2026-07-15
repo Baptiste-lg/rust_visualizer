@@ -207,6 +207,7 @@ fn update_terrain(
                 }
             }
 
+            let state = &mut *state;
             compute_normals_into(&state.vertex_buffer, grid, &mut state.normal_buffer);
             mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, state.vertex_buffer.clone());
             mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, state.normal_buffer.clone());
