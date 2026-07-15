@@ -203,16 +203,12 @@ fn update_terrain(
                     let zf = z as f32 / grid as f32;
 
                     let wave = (xf * 6.0 + t).sin() * 0.3 + (zf * 4.0 + t * 0.7).cos() * 0.2;
-                    state.vertex_buffer[idx][1] =
-                        (amplitude + wave) * config.terrain_height_scale;
+                    state.vertex_buffer[idx][1] = (amplitude + wave) * config.terrain_height_scale;
                 }
             }
 
             compute_normals_into(&state.vertex_buffer, grid, &mut state.normal_buffer);
-            mesh.insert_attribute(
-                Mesh::ATTRIBUTE_POSITION,
-                state.vertex_buffer.clone(),
-            );
+            mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, state.vertex_buffer.clone());
             mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, state.normal_buffer.clone());
         }
 
@@ -279,7 +275,6 @@ fn compute_normals_into(vertices: &[[f32; 3]], grid: usize, normals: &mut Vec<[f
             *n = [0.0, 1.0, 0.0];
         }
     }
-
 }
 
 fn despawn_terrain(mut commands: Commands, query: Query<Entity, With<TerrainScene>>) {
