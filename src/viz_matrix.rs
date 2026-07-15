@@ -24,7 +24,8 @@ struct MatrixChar {
     speed: f32,
 }
 
-const MATRIX_CHARS: &str = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789@#$%&*+=<>?/|\\{}[]~^";
+const MATRIX_CHARS: &str =
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789@#$%&*+=<>?/|\\{}[]~^";
 
 impl Plugin for VizMatrixPlugin {
     fn build(&self, app: &mut App) {
@@ -117,7 +118,11 @@ fn draw_matrix(mut gizmos: Gizmos, config: Res<VisualsConfig>, columns: Query<&M
 
             let b = ch.brightness;
             let color = if i == 0 {
-                Color::rgb((base_r + 0.7).min(1.0), (base_g + 0.7).min(1.0), (base_b + 0.7).min(1.0))
+                Color::rgb(
+                    (base_r + 0.7).min(1.0),
+                    (base_g + 0.7).min(1.0),
+                    (base_b + 0.7).min(1.0),
+                )
             } else {
                 Color::rgba(base_r * b, base_g * b, base_b * b, b)
             };
