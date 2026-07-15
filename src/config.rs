@@ -88,6 +88,14 @@ pub struct VisualsConfig {
     pub waveform_width: f32,
     pub waveform_height: f32,
 
+    // --- Particles Visualizer Settings ---
+    #[serde(with = "color_serde")]
+    pub particles_color: Color,
+    pub particles_count: usize,
+    pub particles_size: f32,
+    pub particles_gravity: f32,
+    pub particles_lifetime: f32,
+
     // --- Background Settings ---
     #[serde(with = "color_serde")]
     pub bg_color: Color,
@@ -141,6 +149,13 @@ impl Default for VisualsConfig {
             waveform_color: Color::rgb(0.2, 0.8, 1.0),
             waveform_width: 800.0,
             waveform_height: 200.0,
+
+            // --- Particles Defaults ---
+            particles_color: Color::rgb(1.0, 0.6, 0.2),
+            particles_count: 8,
+            particles_size: 3.0,
+            particles_gravity: -200.0,
+            particles_lifetime: 2.0,
 
             // --- Background Defaults ---
             bg_color: Color::rgb(0.05, 0.05, 0.1),
