@@ -5,6 +5,7 @@ use crate::audio::{
 };
 use crate::config::VisualsConfig;
 use crate::{in_any_visualization_state, ActiveVisualization, AppState, VisualizationEnabled};
+use bevy::diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin};
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 use bevy_egui::egui::color_picker;
@@ -56,7 +57,7 @@ impl Plugin for UiPlugin {
 
         app.add_systems(
             Update,
-            (toggle_ui_visibility, main_ui_layout)
+            (toggle_ui_visibility, main_ui_layout, fps_overlay)
                 .after(EguiSet::InitContexts)
                 .run_if(in_any_visualization_state),
         );
@@ -78,12 +79,48 @@ struct MainMenuUI;
 #[derive(Component)]
 struct MicDeviceButton(String);
 
-// --- UI Toggle System ---
-fn toggle_ui_visibility(keyboard: Res<ButtonInput<KeyCode>>, mut ui_viz: ResMut<UiVisibility>) {
+// --- UI Toggle & Keyboard Shortcuts ---
+fn toggle_ui_visibility(
+    keyboard: Res<ButtonInput<KeyCode>>,
+    mut ui_viz: ResMut<UiVisibility>,
+    mut next_app_state: ResMut<NextState<AppState>>,
+    mut active_viz: ResMut<ActiveVisualization>,
+    mut windows: Query<&mut Window, With<PrimaryWindow>>,
+) {
     if keyboard.just_pressed(KeyCode::KeyH) {
         ui_viz.visible = !ui_viz.visible;
         if !ui_viz.visible {
             ui_viz.hint_timer.reset();
+        }
+    }
+
+    // Fullscreen toggle
+    if keyboard.just_pressed(KeyCode::KeyF) {
+        if let Ok(mut window) = windows.get_single_mut() {
+            window.mode = match window.mode {
+                bevy::window::WindowMode::Windowed => {
+                    bevy::window::WindowMode::BorderlessFullscreen
+                }
+                _ => bevy::window::WindowMode::Windowed,
+            };
+        }
+    }
+
+    // Number keys to switch visualization
+    let mappings = [
+        (KeyCode::Digit1, AppState::Visualization2D),
+        (KeyCode::Digit2, AppState::Visualization3D),
+        (KeyCode::Digit3, AppState::VisualizationOrb),
+        (KeyCode::Digit4, AppState::VisualizationDisc),
+        (KeyCode::Digit5, AppState::VisualizationIco),
+        (KeyCode::Digit6, AppState::VisualizationWaveform),
+        (KeyCode::Digit7, AppState::VisualizationParticles),
+    ];
+    for (key, state) in mappings {
+        if keyboard.just_pressed(key) {
+            next_app_state.set(state.clone());
+            active_viz.0 = state;
+            break;
         }
     }
 }
@@ -516,7 +553,7 @@ fn main_ui_layout(
             ui.add_space(20.0);
             ui.separator();
             ui.vertical_centered(|ui| {
-                ui.label(egui::RichText::new("Press 'H' to Hide UI").weak().italics());
+                ui.label(egui::RichText::new("H: Hide UI | F: Fullscreen | 1-7: Switch Viz").weak().italics());
             });
         });
 }
@@ -721,4 +758,23 @@ fn cleanup_menu(mut commands: Commands, ui_query: Query<Entity, With<MainMenuUI>
     for entity in ui_query.iter() {
         commands.entity(entity).despawn_recursive();
     }
+}
+
+fn fps_overlay(mut contexts: EguiContexts, diagnostics: Res<DiagnosticsStore>) {
+    let fps = diagnostics
+        .get(&FrameTimeDiagnosticsPlugin::FPS)
+        .and_then(|d| d.smoothed())
+        .unwrap_or(0.0);
+
+    let ctx = contexts.ctx_mut();
+    egui::Area::new("fps_overlay".into())
+        .anchor(egui::Align2::RIGHT_BOTTOM, egui::vec2(-10.0, -10.0))
+        .interactable(false)
+        .show(ctx, |ui| {
+            ui.label(
+                egui::RichText::new(format!("{:.0} FPS", fps))
+                    .color(egui::Color32::from_white_alpha(150))
+                    .small(),
+            );
+        });
 }
