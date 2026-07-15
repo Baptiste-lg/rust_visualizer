@@ -16,20 +16,14 @@ struct Star {
 
 impl Plugin for VizStarfieldPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(
-            OnEnter(AppState::VisualizationStarfield),
-            setup_starfield,
-        )
-        .add_systems(
-            Update,
-            update_starfield
-                .run_if(in_state(AppState::VisualizationStarfield))
-                .run_if(|viz_enabled: Res<VisualizationEnabled>| viz_enabled.0),
-        )
-        .add_systems(
-            OnExit(AppState::VisualizationStarfield),
-            despawn_starfield,
-        );
+        app.add_systems(OnEnter(AppState::VisualizationStarfield), setup_starfield)
+            .add_systems(
+                Update,
+                update_starfield
+                    .run_if(in_state(AppState::VisualizationStarfield))
+                    .run_if(|viz_enabled: Res<VisualizationEnabled>| viz_enabled.0),
+            )
+            .add_systems(OnExit(AppState::VisualizationStarfield), despawn_starfield);
     }
 }
 
