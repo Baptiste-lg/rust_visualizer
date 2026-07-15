@@ -255,6 +255,18 @@ fn main_ui_layout(
                     ui.label("Vertical Scale");
                     ui.add(egui::Slider::new(&mut config.waveform_height, 50.0..=800.0));
                 }
+                AppState::VisualizationParticles => {
+                    ui.label("Particle Color");
+                    color_picker_widget(ui, &mut config.particles_color);
+                    ui.label("Particles per Beat");
+                    ui.add(egui::Slider::new(&mut config.particles_count, 1..=50));
+                    ui.label("Particle Size");
+                    ui.add(egui::Slider::new(&mut config.particles_size, 1.0..=20.0));
+                    ui.label("Gravity");
+                    ui.add(egui::Slider::new(&mut config.particles_gravity, -500.0..=0.0));
+                    ui.label("Lifetime (s)");
+                    ui.add(egui::Slider::new(&mut config.particles_lifetime, 0.5..=5.0));
+                }
                 AppState::MainMenu | AppState::MicSelection => {}
             });
         });
@@ -378,6 +390,16 @@ fn main_ui_layout(
                 {
                     next_app_state.set(AppState::VisualizationWaveform);
                     active_viz.0 = AppState::VisualizationWaveform;
+                }
+                if ui
+                    .selectable_label(
+                        *current_state == AppState::VisualizationParticles,
+                        "Particles",
+                    )
+                    .clicked()
+                {
+                    next_app_state.set(AppState::VisualizationParticles);
+                    active_viz.0 = AppState::VisualizationParticles;
                 }
             });
 
