@@ -156,7 +156,10 @@ fn main() {
             VizWaveformPlugin,
             VizParticlesPlugin,
         ))
-        .add_systems(Update, update_background_color.run_if(in_any_visualization_state))
+        .add_systems(
+            Update,
+            update_background_color.run_if(in_any_visualization_state),
+        )
         .run();
 }
 
