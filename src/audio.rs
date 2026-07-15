@@ -205,20 +205,21 @@ impl Plugin for AudioPlugin {
         #[cfg(target_arch = "wasm32")]
         {
             use crate::audio_web;
-            app.add_systems(
-                Update,
-                (
-                    audio_web::web_manage_source,
-                    audio_web::web_poll_file_loaded,
-                    audio_web::web_read_audio_data,
-                    audio_web::web_apply_playback,
-                    audio_web::web_update_position,
-                    audio_analysis_system
-                        .after(audio_web::web_read_audio_data)
-                        .run_if(|viz_enabled: Res<VisualizationEnabled>| viz_enabled.0),
-                )
-                    .run_if(in_any_visualization_state),
-            );
+            app.add_systems(Startup, |_: Commands| audio_web::setup_drag_drop())
+                .add_systems(
+                    Update,
+                    (
+                        audio_web::web_manage_source,
+                        audio_web::web_poll_file_loaded,
+                        audio_web::web_read_audio_data,
+                        audio_web::web_apply_playback,
+                        audio_web::web_update_position,
+                        audio_analysis_system
+                            .after(audio_web::web_read_audio_data)
+                            .run_if(|viz_enabled: Res<VisualizationEnabled>| viz_enabled.0),
+                    )
+                        .run_if(in_any_visualization_state),
+                );
         }
     }
 }
