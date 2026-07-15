@@ -104,12 +104,26 @@ fn update_starfield(
 }
 
 fn rand_f32() -> f32 {
-    use std::collections::hash_map::DefaultHasher;
-    use std::hash::{Hash, Hasher};
     use std::sync::atomic::{AtomicU64, Ordering};
-    static COUNTER: AtomicU64 = AtomicU64::new(0);
-    let val = COUNTER.fetch_add(1, Ordering::Relaxed);
-    let mut hasher = DefaultHasher::new();
-    val.hash(&mut hasher);
-    (hasher.finish() % 10000) as f32 / 10000.0
+    static STATE: AtomicU64 = AtomicU64::new(0);
+
+    // Seed once from elapsed time on first call
+    let _ = STATE.compare_exchange(
+        0,
+        (std::time::SystemTime::UNIX_EPOCH
+            .elapsed()
+            .unwrap_or_default()
+            .as_nanos() as u64)
+            | 1,
+        Ordering::Relaxed,
+        Ordering::Relaxed,
+    );
+
+    // xorshift64
+    let mut s = STATE.load(Ordering::Relaxed);
+    s ^= s << 13;
+    s ^= s >> 7;
+    s ^= s << 17;
+    STATE.store(s, Ordering::Relaxed);
+    (s % 10000) as f32 / 10000.0
 }
